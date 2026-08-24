@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="JobFlow — a focused remote job application tracker.">
+  <title>JobFlow — Application Tracker</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="JobFlow dashboard">
+        <span class="brand-mark" aria-hidden="true">J</span>
+        <span>JobFlow</span>
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="nav-item active" href="#dashboard"><span aria-hidden="true">⌂</span> Dashboard</a>
+        <a class="nav-item" href="#applications"><span aria-hidden="true">▦</span> Applications</a>
+        <a class="nav-item" href="#insights"><span aria-hidden="true">↗</span> Insights</a>
+      </nav>
+      <div class="sidebar-note">
+        <span class="pulse"></span>
+        <div><strong>Demo workspace</strong><small>Local data · Private by design</small></div>
+      </div>
+      <footer>JobFlow v1.0</footer>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">REMOTE CAREER WORKSPACE</p>
+          <h1 id="greeting">Hello, Haoran.</h1>
+          <p class="subtitle">Turn every application into a deliberate next step.</p>
+        </div>
+        <button class="primary-button" id="add-application"><span aria-hidden="true">＋</span> Add application</button>
+      </header>
+
+      <section class="stats-grid" id="dashboard" aria-label="Application summary">
+        <article class="stat-card accent-purple">
+          <div class="stat-icon">◎</div><div><p>Total applications</p><strong id="stat-total">—</strong><small>Across every stage</small></div>
+        </article>
+        <article class="stat-card accent-blue">
+          <div class="stat-icon">◫</div><div><p>Active pipeline</p><strong id="stat-active">—</strong><small>Applied through offer</small></div>
+        </article>
+        <article class="stat-card accent-green">
+          <div class="stat-icon">◇</div><div><p>Interviews & offers</p><strong id="stat-interviews">—</strong><small>Meaningful responses</small></div>
+        </article>
+        <article class="stat-card accent-orange">
+          <div class="stat-icon">↗</div><div><p>Response signal</p><strong id="stat-rate">—</strong><small>Interview / total ratio</small></div>
+        </article>
+      </section>
+
+      <section class="workspace" id="applications">
+        <div class="section-heading">
+          <div><p class="eyebrow">YOUR PIPELINE</p><h2>Applications</h2></div>
+          <span class="count-pill" id="result-count">Loading…</span>
+        </div>
+        <div class="toolbar">
+          <label class="search-field">
+            <span aria-hidden="true">⌕</span>
+            <span class="sr-only">Search applications</span>
+            <input id="search" type="search" placeholder="Search company, role or location…" autocomplete="off">
+          </label>
+          <label><span class="sr-only">Filter by status</span><select id="status-filter"><option value="">All statuses</option></select></label>
+          <label><span class="sr-only">Filter by work mode</span><select id="mode-filter"><option value="">All work modes</option></select></label>
+          <label><span class="sr-only">Sort applications</span><select id="sort"><option value="updated_at">Recently updated</option><option value="next_action_date">Next action</option><option value="applied_date">Applied date</option><option value="company">Company name</option></select></label>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Opportunity</th><th>Status</th><th>Work mode</th><th>Applied</th><th>Next action</th><th><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody id="applications-body"></tbody>
+          </table>
+          <div class="empty-state" id="empty-state" hidden>
+            <div>⌕</div><h3>No applications found</h3><p>Adjust your filters or add a new opportunity.</p>
+          </div>
+          <div class="loading-state" id="loading-state"><span class="spinner"></span> Loading your pipeline…</div>
+        </div>
+      </section>
+
+      <section class="insights-grid" id="insights">
+        <article class="panel">
+          <div class="section-heading compact"><div><p class="eyebrow">PIPELINE HEALTH</p><h2>Stage distribution</h2></div></div>
+          <div id="stage-chart" class="stage-chart"></div>
+        </article>
+        <article class="panel">
+          <div class="section-heading compact"><div><p class="eyebrow">STAY AHEAD</p><h2>Upcoming actions</h2></div></div>
+          <div id="upcoming-list" class="upcoming-list"></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="application-dialog" aria-labelledby="dialog-title">
+    <form id="application-form" novalidate>
+      <div class="dialog-header">
+        <div><p class="eyebrow">OPPORTUNITY DETAILS</p><h2 id="dialog-title">Add application</h2></div>
+        <button type="button" class="icon-button" id="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="form-errors" id="form-errors" hidden></div>
+      <input type="hidden" name="id">
+      <div class="form-grid">
+        <label>Company <span>*</span><input name="company" maxlength="120" required placeholder="e.g. Northstar Labs"></label>
+        <label>Role <span>*</span><input name="role" maxlength="160" required placeholder="e.g. Python Developer"></label>
+        <label>Location<input name="location" maxlength="120" placeholder="Worldwide or Tokyo, Japan"></label>
+        <label>Source<input name="source" maxlength="80" placeholder="LinkedIn, referral, company site…"></label>
+        <label>Status <span>*</span><select name="status" required></select></label>
+        <label>Work mode <span>*</span><select name="work_mode" required></select></label>
+        <label>Applied date<input type="date" name="applied_date"></label>
+        <label>Next action<input type="date" name="next_action_date"></label>
+        <label>Minimum salary<input type="number" min="0" step="1" name="salary_min" placeholder="Optional"></label>
+        <label>Maximum salary<input type="number" min="0" step="1" name="salary_max" placeholder="Optional"></label>
+        <label>Currency<select name="currency"></select></label>
+        <label>Job URL<input type="url" name="url" maxlength="500" placeholder="https://…"></label>
+        <label class="full-width">Notes<textarea name="notes" maxlength="4000" rows="4" placeholder="Interview notes, preparation tasks, people to contact…"></textarea></label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="secondary-button" id="cancel-dialog">Cancel</button>
+        <button type="submit" class="primary-button" id="save-application">Save application</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
