@@ -1,5 +1,10 @@
 # JobFlow
 
+[![CI](https://github.com/T98765SREDT/jobflow/actions/workflows/ci.yml/badge.svg)](https://github.com/T98765SREDT/jobflow/actions/workflows/ci.yml)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](app.py)
+[![Runtime](https://img.shields.io/badge/runtime-Python%20stdlib-306998)](app.py)
+[![License](https://img.shields.io/badge/license-MIT-0b6e99)](LICENSE)
+
 JobFlow is a polished, full-stack application tracker for remote job seekers. It combines a responsive dashboard, a REST-style JSON API, strong server-side validation, SQLite persistence, live search and filtering, and pipeline analytics—using only the Python standard library and browser-native HTML, CSS, and JavaScript.
 
 ![JobFlow dashboard](docs/jobflow-dashboard.png)
@@ -40,6 +45,13 @@ python3 -m unittest discover -s tests -v
 ```
 
 The tests use temporary databases and do not modify local demo data.
+
+## Engineering notes
+
+- The service is intentionally dependency-free and is exercised on supported Python versions by GitHub Actions.
+- The API boundary uses structured JSON error responses, strict request-size limits, and parameterized SQL.
+- Read [ARCHITECTURE.md](ARCHITECTURE.md) for the data flow, design trade-offs, and interview discussion points.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for the local verification checklist and [SECURITY.md](SECURITY.md) for scope and reporting guidance.
 
 ## API overview
 
