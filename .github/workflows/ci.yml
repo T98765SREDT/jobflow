@@ -21,5 +21,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Compile source
         run: python -m compileall -q app.py jobflow tests
+      - name: Check browser JavaScript
+        run: |
+          node --check static/app.js
+          node --check static/demo-data.js
       - name: Run test suite
         run: python -m unittest discover -s tests -v
