@@ -6,6 +6,7 @@ const form = $("#application-form");
 const dialog = $("#application-dialog");
 
 async function api(path, options = {}) {
+  if (window.JobFlowDemoApi) return window.JobFlowDemoApi(path, options);
   const response = await fetch(path, {
     ...options,
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -210,6 +211,10 @@ async function initialize() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   $("#greeting").textContent = `${greeting}, Haoran.`;
+  if (window.JobFlowDemoApi) {
+    document.title = "JobFlow — Interactive Portfolio Preview";
+    $("#demo-notice").hidden = false;
+  }
   bindEvents();
   try {
     state.options = await api("/api/meta/options");

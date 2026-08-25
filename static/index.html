@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="JobFlow — a focused remote job application tracker.">
   <title>JobFlow — Application Tracker</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app-shell">
@@ -35,6 +35,11 @@
         </div>
         <button class="primary-button" id="add-application"><span aria-hidden="true">＋</span> Add application</button>
       </header>
+
+      <aside class="demo-notice" id="demo-notice" hidden aria-label="Interactive preview notice">
+        <span aria-hidden="true">✦</span>
+        <p><strong>Interactive portfolio preview</strong><span>Changes stay in this browser and reset when the page reloads. The full application runs locally with Python and SQLite.</span></p>
+      </aside>
 
       <section class="stats-grid" id="dashboard" aria-label="Application summary">
         <article class="stat-card accent-purple">
@@ -123,6 +128,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/app.js" defer></script>
+  <script src="demo-data.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

@@ -38,6 +38,12 @@ h1 { font-size: clamp(25px, 3vw, 34px); line-height: 1.15; letter-spacing: -1.1p
 .primary-button:hover { background: var(--purple-dark); transform: translateY(-1px); }
 .secondary-button { color: #505c70; background: #eef0f5; }
 .secondary-button:hover { background: #e4e7ee; }
+.demo-notice { display: flex; align-items: flex-start; gap: 11px; margin: -9px 0 24px; padding: 13px 15px; color: #4c5569; background: #f1efff; border: 1px solid #ded9ff; border-radius: 12px; }
+.demo-notice[hidden] { display: none; }
+.demo-notice > span { display: grid; place-items: center; flex: 0 0 25px; height: 25px; color: #fff; background: var(--purple); border-radius: 8px; font-size: 12px; }
+.demo-notice p { margin: 0; font-size: 12px; line-height: 1.45; }
+.demo-notice strong, .demo-notice p span { display: block; }
+.demo-notice strong { margin-bottom: 2px; color: #4f40bf; font-size: 12px; }
 
 .stats-grid { display: grid; grid-template-columns: repeat(4, minmax(180px,1fr)); gap: 15px; margin-bottom: 27px; }
 .stat-card { min-height: 130px; display: flex; align-items: center; gap: 15px; padding: 21px; border: 1px solid #eceef3; border-radius: var(--radius); background: var(--surface); box-shadow: 0 5px 18px rgba(28,39,64,.025); }

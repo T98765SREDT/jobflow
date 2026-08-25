@@ -7,7 +7,9 @@
 
 JobFlow is a polished, full-stack application tracker for remote job seekers. It combines a responsive dashboard, a REST-style JSON API, strong server-side validation, SQLite persistence, live search and filtering, and pipeline analytics—using only the Python standard library and browser-native HTML, CSS, and JavaScript.
 
-[View the dashboard](docs/jobflow-dashboard.png) · [Read the architecture](ARCHITECTURE.md) · [Review the API](#api-overview) · [Run the test suite](#run-tests)
+[Try the interactive UI preview](https://t98765sredt.github.io/jobflow/static/?demo=1) · [View the dashboard](docs/jobflow-dashboard.png) · [Read the architecture](ARCHITECTURE.md) · [Review the API](#api-overview) · [Run the test suite](#run-tests)
+
+> **Portfolio preview:** the interactive preview runs entirely in the browser so it can be explored without an account. Its sample data resets on reload; the complete application uses the Python HTTP server and SQLite database described below.
 
 ![JobFlow dashboard](docs/jobflow-dashboard.png)
 
