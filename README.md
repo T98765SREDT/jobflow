@@ -135,7 +135,7 @@ Run `python3 app.py` with a fresh database, open `http://127.0.0.1:8000`, and ca
 - Database mutations are committed atomically and rolled back on failure.
 - The app intentionally binds to `127.0.0.1` by default. It is a portfolio/local tool, not a production authentication system.
 
-See [SECURITY.md](SECURITY.md) for deployment scope and private reporting guidance. Contribution checks are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+See [SECURITY.md](SECURITY.md) for deployment scope and private reporting guidance. Contribution checks are documented in [CONTRIBUTING.md](CONTRIBUTING.md), and version notes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Future improvements
 
