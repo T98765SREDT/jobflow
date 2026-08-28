@@ -1,3 +1,4 @@
+
 # JobFlow
 
 [![CI](https://github.com/T98765SREDT/jobflow/actions/workflows/ci.yml/badge.svg)](https://github.com/T98765SREDT/jobflow/actions/workflows/ci.yml)
@@ -8,6 +9,10 @@
 JobFlow is a local-first job application tracker built with Python, SQLite, and vanilla JavaScript. It keeps applications, follow-up dates, notes, and pipeline metrics in one private workspace. The local app requires Python 3.9+ and no package installation.
 
 [Interactive demo](https://t98765sredt.github.io/jobflow/static/?demo=1) · [Screenshot](docs/jobflow-dashboard.png) · [Quick start](#quick-start) · [API](#api-overview) · [Architecture](ARCHITECTURE.md)
+
+[View the dashboard](docs/jobflow-dashboard.png) · [Read the architecture](ARCHITECTURE.md) · [Review the API](#api-overview) · [Run the test suite](#tests-and-checks)
+
+[View the dashboard](docs/jobflow-dashboard.png) · [Read the architecture](ARCHITECTURE.md) · [Review the API](#api-overview) · [Run the test suite](#run-tests)
 
 ![JobFlow dashboard](docs/jobflow-dashboard.png)
 
