@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlparse
 
@@ -10,6 +11,7 @@ from urllib.parse import urlparse
 STATUSES = ("Wishlist", "Applied", "Interview", "Offer", "Rejected")
 WORK_MODES = ("Remote", "Hybrid", "On-site")
 CURRENCIES = ("USD", "EUR", "JPY", "GBP", "CNY")
+SALARY_PERIODS = ("Hourly", "Monthly", "Annual")
 
 ALLOWED_FIELDS = {
     "company",
@@ -21,6 +23,7 @@ ALLOWED_FIELDS = {
     "url",
     "salary_min",
     "salary_max",
+    "salary_period",
     "currency",
     "applied_date",
     "next_action_date",
@@ -51,16 +54,16 @@ def _validate_date(value: Any, field: str, errors: dict[str, str]) -> str | None
     return text
 
 
-def _validate_salary(value: Any, field: str, errors: dict[str, str]) -> int | None:
+def _validate_salary(value: Any, field: str, errors: dict[str, str]) -> float | int | None:
     if value in (None, ""):
         return None
     try:
-        amount = int(value)
-        if amount < 0:
+        amount = Decimal(str(value))
+        if not amount.is_finite() or amount < 0 or amount.as_tuple().exponent < -2:
             raise ValueError
-        return amount
-    except (TypeError, ValueError):
-        errors[field] = "Enter a non-negative whole number."
+        return int(amount) if amount == amount.to_integral_value() else float(amount)
+    except (InvalidOperation, TypeError, ValueError):
+        errors[field] = "Enter a non-negative amount with no more than two decimal places."
         return None
 
 
@@ -108,6 +111,14 @@ def validate_application(payload: Any, *, partial: bool = False) -> dict[str, An
     if "work_mode" in cleaned and cleaned["work_mode"] not in WORK_MODES:
         errors["work_mode"] = f"Choose one of: {', '.join(WORK_MODES)}."
 
+    if "salary_period" in payload:
+        salary_period = _text(payload["salary_period"]) or "Annual"
+        if salary_period not in SALARY_PERIODS:
+            errors["salary_period"] = f"Choose one of: {', '.join(SALARY_PERIODS)}."
+        cleaned["salary_period"] = salary_period
+    elif not partial:
+        cleaned["salary_period"] = "Annual"
+
     if "currency" in payload:
         currency = _text(payload["currency"]).upper() or "USD"
         if currency not in CURRENCIES:
@@ -126,13 +137,24 @@ def validate_application(payload: Any, *, partial: bool = False) -> dict[str, An
 
     if "url" in cleaned and cleaned["url"]:
         parsed = urlparse(cleaned["url"])
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        hostname = parsed.hostname or ""
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or not hostname
+            or any(character.isspace() for character in cleaned["url"])
+        ):
             errors["url"] = "Enter a complete http:// or https:// URL."
 
     minimum = cleaned.get("salary_min")
     maximum = cleaned.get("salary_max")
     if minimum is not None and maximum is not None and maximum < minimum:
         errors["salary_max"] = "Maximum salary cannot be below minimum salary."
+
+    applied_date = cleaned.get("applied_date")
+    next_action_date = cleaned.get("next_action_date")
+    if applied_date and next_action_date and next_action_date < applied_date:
+        errors["next_action_date"] = "Next action cannot be before the applied date."
 
     if errors:
         raise ValidationError(errors)

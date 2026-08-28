@@ -3,126 +3,244 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="JobFlow — a focused remote job application tracker.">
+  <meta name="description" content="JobFlow is a local-first application tracker for managing opportunities, follow-ups, and pipeline health.">
+  <meta name="theme-color" content="#0f172a">
   <title>JobFlow — Application Tracker</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
   <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="#" aria-label="JobFlow dashboard">
-        <span class="brand-mark" aria-hidden="true">J</span>
-        <span>JobFlow</span>
+    <aside class="sidebar" aria-label="Workspace navigation">
+      <a class="brand" href="#dashboard" aria-label="JobFlow dashboard">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M6 5.5h12v13H6zM9 9h6M9 12h6M9 15h3"/></svg>
+        </span>
+        <span><strong>JobFlow</strong><small>Application workspace</small></span>
       </a>
+
       <nav class="nav" aria-label="Primary navigation">
-        <a class="nav-item active" href="#dashboard"><span aria-hidden="true">⌂</span> Dashboard</a>
-        <a class="nav-item" href="#applications"><span aria-hidden="true">▦</span> Applications</a>
-        <a class="nav-item" href="#insights"><span aria-hidden="true">↗</span> Insights</a>
+        <a class="nav-item active" href="#dashboard" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+          Overview
+        </a>
+        <a class="nav-item" href="#applications">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 12h14M5 18h14M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          Applications
+        </a>
+        <a class="nav-item" href="#insights">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19V3"/></svg>
+          Insights
+        </a>
       </nav>
-      <div class="sidebar-note">
-        <span class="pulse"></span>
-        <div><strong>Demo workspace</strong><small>Local data · Private by design</small></div>
+
+      <div class="sidebar-spacer"></div>
+      <div class="workspace-state">
+        <span class="state-dot" aria-hidden="true"></span>
+        <div><strong>Local workspace</strong><small>SQLite · Stored on device</small></div>
       </div>
-      <footer>JobFlow v1.0</footer>
+      <footer><span>JobFlow</span><span id="app-version">v1.1</span></footer>
     </aside>
 
-    <main>
-      <header class="topbar">
+    <main id="main-content" tabindex="-1">
+      <header class="topbar" id="dashboard">
         <div>
-          <p class="eyebrow">REMOTE CAREER WORKSPACE</p>
-          <h1 id="greeting">Hello, Haoran.</h1>
-          <p class="subtitle">Turn every application into a deliberate next step.</p>
+          <p class="eyebrow">APPLICATION PIPELINE</p>
+          <h1>Keep every opportunity moving.</h1>
+          <p class="subtitle">Track decisions, deadlines, and follow-ups in one private workspace.</p>
         </div>
-        <button class="primary-button" id="add-application"><span aria-hidden="true">＋</span> Add application</button>
+        <div class="header-actions" aria-label="Workspace actions">
+          <button class="button button-secondary" id="import-trigger" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+            Import
+          </button>
+          <div class="menu-wrap">
+            <button class="button button-secondary" id="export-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
+              Export
+              <span aria-hidden="true">⌄</span>
+            </button>
+            <div class="action-menu" id="export-menu" role="menu" hidden>
+              <button type="button" role="menuitem" data-export="json"><strong>JSON backup</strong><small>Restore all application data later</small></button>
+              <button type="button" role="menuitem" data-export="csv"><strong>CSV spreadsheet</strong><small>Review or analyze outside JobFlow</small></button>
+            </div>
+          </div>
+          <button class="button button-primary" id="add-application" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Add application
+          </button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden>
+        </div>
       </header>
 
-      <aside class="demo-notice" id="demo-notice" hidden aria-label="Interactive preview notice">
-        <span aria-hidden="true">✦</span>
-        <p><strong>Interactive portfolio preview</strong><span>Changes stay in this browser and reset when the page reloads. The full application runs locally with Python and SQLite.</span></p>
+      <aside class="demo-notice" id="demo-notice" hidden aria-label="Portfolio preview notice">
+        <span class="notice-icon" aria-hidden="true">D</span>
+        <p><strong>Interactive portfolio demo</strong><span>Your changes are saved in this browser. Use reset to restore the sample workspace.</span></p>
+        <button class="text-button" id="reset-demo" type="button">Reset demo</button>
       </aside>
 
-      <section class="stats-grid" id="dashboard" aria-label="Application summary">
-        <article class="stat-card accent-purple">
-          <div class="stat-icon">◎</div><div><p>Total applications</p><strong id="stat-total">—</strong><small>Across every stage</small></div>
+      <aside class="system-error" id="system-error" role="alert" hidden>
+        <div>
+          <strong id="system-error-title">JobFlow could not refresh.</strong>
+          <span id="system-error-message">Your existing data is unchanged.</span>
+        </div>
+        <button class="button button-secondary button-small" id="retry-load" type="button">Try again</button>
+      </aside>
+
+      <section class="stats-grid" aria-label="Application summary">
+        <article class="stat-card">
+          <div class="stat-heading"><p>Total applications</p><span class="stat-icon stat-icon-indigo" aria-hidden="true">01</span></div>
+          <strong id="stat-total">—</strong>
+          <small>Across every pipeline stage</small>
         </article>
-        <article class="stat-card accent-blue">
-          <div class="stat-icon">◫</div><div><p>Active pipeline</p><strong id="stat-active">—</strong><small>Applied through offer</small></div>
+        <article class="stat-card">
+          <div class="stat-heading"><p>Active pipeline</p><span class="stat-icon stat-icon-blue" aria-hidden="true">02</span></div>
+          <strong id="stat-active">—</strong>
+          <small>Applied, interview, and offer</small>
         </article>
-        <article class="stat-card accent-green">
-          <div class="stat-icon">◇</div><div><p>Interviews & offers</p><strong id="stat-interviews">—</strong><small>Meaningful responses</small></div>
+        <article class="stat-card">
+          <div class="stat-heading"><p>Positive responses</p><span class="stat-icon stat-icon-green" aria-hidden="true">03</span></div>
+          <strong id="stat-interviews">—</strong>
+          <small id="stat-rate">— response rate</small>
         </article>
-        <article class="stat-card accent-orange">
-          <div class="stat-icon">↗</div><div><p>Response signal</p><strong id="stat-rate">—</strong><small>Interview / total ratio</small></div>
+        <article class="stat-card">
+          <div class="stat-heading"><p>Needs attention</p><span class="stat-icon stat-icon-amber" aria-hidden="true">04</span></div>
+          <strong id="stat-overdue">—</strong>
+          <small id="stat-due-soon">— due in the next 7 days</small>
         </article>
       </section>
 
-      <section class="workspace" id="applications">
-        <div class="section-heading">
-          <div><p class="eyebrow">YOUR PIPELINE</p><h2>Applications</h2></div>
-          <span class="count-pill" id="result-count">Loading…</span>
+      <section class="workspace" id="applications" aria-labelledby="applications-title">
+        <div class="workspace-heading">
+          <div>
+            <p class="eyebrow">YOUR WORKSPACE</p>
+            <div class="title-row"><h2 id="applications-title">Applications</h2><span class="count-pill" id="result-count">Loading…</span></div>
+          </div>
+          <button class="text-button" id="clear-filters" type="button" hidden>Clear filters</button>
         </div>
+
+        <div class="view-tabs" role="group" aria-label="Saved application views">
+          <button type="button" class="view-tab active" data-view="all" aria-pressed="true">All</button>
+          <button type="button" class="view-tab" data-view="active" aria-pressed="false">Active</button>
+          <button type="button" class="view-tab" data-view="follow-up" aria-pressed="false">Needs follow-up</button>
+          <button type="button" class="view-tab" data-view="interview" aria-pressed="false">Interviews</button>
+          <button type="button" class="view-tab" data-view="offers" aria-pressed="false">Offers</button>
+        </div>
+
         <div class="toolbar">
           <label class="search-field">
-            <span aria-hidden="true">⌕</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
             <span class="sr-only">Search applications</span>
-            <input id="search" type="search" placeholder="Search company, role or location…" autocomplete="off">
+            <input id="search" type="search" placeholder="Search company, role, location, or notes" autocomplete="off">
           </label>
           <label><span class="sr-only">Filter by status</span><select id="status-filter"><option value="">All statuses</option></select></label>
           <label><span class="sr-only">Filter by work mode</span><select id="mode-filter"><option value="">All work modes</option></select></label>
-          <label><span class="sr-only">Sort applications</span><select id="sort"><option value="updated_at">Recently updated</option><option value="next_action_date">Next action</option><option value="applied_date">Applied date</option><option value="company">Company name</option></select></label>
+          <label><span class="sr-only">Sort applications</span><select id="sort"><option value="updated_at">Recently updated</option><option value="next_action_date">Next action</option><option value="applied_date">Applied date</option><option value="company">Company name</option><option value="status">Pipeline stage</option></select></label>
         </div>
+
+        <div class="active-filters" id="active-filters" aria-live="polite" hidden></div>
 
         <div class="table-wrap">
           <table>
+            <caption class="sr-only">Job applications matching the current filters</caption>
             <thead><tr><th>Opportunity</th><th>Status</th><th>Work mode</th><th>Applied</th><th>Next action</th><th><span class="sr-only">Actions</span></th></tr></thead>
             <tbody id="applications-body"></tbody>
           </table>
           <div class="empty-state" id="empty-state" hidden>
-            <div>⌕</div><h3>No applications found</h3><p>Adjust your filters or add a new opportunity.</p>
+            <span class="empty-icon" aria-hidden="true">⌕</span>
+            <h3>No applications match this view</h3>
+            <p>Clear a filter or add a new opportunity to continue.</p>
+            <button class="button button-secondary button-small" id="empty-clear" type="button">Clear filters</button>
           </div>
-          <div class="loading-state" id="loading-state"><span class="spinner"></span> Loading your pipeline…</div>
+          <div class="loading-state" id="loading-state" role="status"><span class="spinner" aria-hidden="true"></span> Loading applications…</div>
         </div>
+
+        <footer class="pagination" id="pagination">
+          <label>Rows per page<select id="page-size"><option value="10">10</option><option value="20" selected>20</option><option value="50">50</option></select></label>
+          <span id="page-summary">—</span>
+          <div>
+            <button class="icon-button bordered" id="previous-page" type="button" aria-label="Previous page">←</button>
+            <button class="icon-button bordered" id="next-page" type="button" aria-label="Next page">→</button>
+          </div>
+        </footer>
       </section>
 
-      <section class="insights-grid" id="insights">
+      <section class="insights-grid" id="insights" aria-label="Pipeline insights">
         <article class="panel">
-          <div class="section-heading compact"><div><p class="eyebrow">PIPELINE HEALTH</p><h2>Stage distribution</h2></div></div>
+          <div class="panel-heading"><div><p class="eyebrow">PIPELINE HEALTH</p><h2>Stage distribution</h2></div><span>Current workspace</span></div>
           <div id="stage-chart" class="stage-chart"></div>
         </article>
         <article class="panel">
-          <div class="section-heading compact"><div><p class="eyebrow">STAY AHEAD</p><h2>Upcoming actions</h2></div></div>
+          <div class="panel-heading"><div><p class="eyebrow">NEXT ACTIONS</p><h2>Follow-up queue</h2></div><span>Nearest five</span></div>
           <div id="upcoming-list" class="upcoming-list"></div>
         </article>
       </section>
     </main>
   </div>
 
-  <dialog id="application-dialog" aria-labelledby="dialog-title">
+  <dialog id="application-dialog" class="modal" aria-labelledby="dialog-title">
     <form id="application-form" novalidate>
       <div class="dialog-header">
-        <div><p class="eyebrow">OPPORTUNITY DETAILS</p><h2 id="dialog-title">Add application</h2></div>
-        <button type="button" class="icon-button" id="close-dialog" aria-label="Close">×</button>
+        <div><p class="eyebrow">APPLICATION RECORD</p><h2 id="dialog-title">Add application</h2><p>Fields marked with an asterisk are required.</p></div>
+        <button type="button" class="icon-button" id="close-dialog" aria-label="Close application form">×</button>
       </div>
-      <div class="form-errors" id="form-errors" hidden></div>
+      <div class="form-errors" id="form-errors" role="alert" hidden></div>
       <input type="hidden" name="id">
       <div class="form-grid">
-        <label>Company <span>*</span><input name="company" maxlength="120" required placeholder="e.g. Northstar Labs"></label>
-        <label>Role <span>*</span><input name="role" maxlength="160" required placeholder="e.g. Python Developer"></label>
+        <label>Company <span aria-hidden="true">*</span><input name="company" maxlength="120" required placeholder="Northstar Labs"></label>
+        <label>Role <span aria-hidden="true">*</span><input name="role" maxlength="160" required placeholder="Python Backend Developer"></label>
         <label>Location<input name="location" maxlength="120" placeholder="Worldwide or Tokyo, Japan"></label>
-        <label>Source<input name="source" maxlength="80" placeholder="LinkedIn, referral, company site…"></label>
-        <label>Status <span>*</span><select name="status" required></select></label>
-        <label>Work mode <span>*</span><select name="work_mode" required></select></label>
+        <label>Source<input name="source" maxlength="80" placeholder="LinkedIn, referral, company site"></label>
+        <label>Status <span aria-hidden="true">*</span><select name="status" required></select></label>
+        <label>Work mode <span aria-hidden="true">*</span><select name="work_mode" required></select></label>
         <label>Applied date<input type="date" name="applied_date"></label>
         <label>Next action<input type="date" name="next_action_date"></label>
-        <label>Minimum salary<input type="number" min="0" step="1" name="salary_min" placeholder="Optional"></label>
-        <label>Maximum salary<input type="number" min="0" step="1" name="salary_max" placeholder="Optional"></label>
+        <label>Minimum salary<input type="number" min="0" step="0.01" name="salary_min" inputmode="decimal" placeholder="Optional"></label>
+        <label>Maximum salary<input type="number" min="0" step="0.01" name="salary_max" inputmode="decimal" placeholder="Optional"></label>
         <label>Currency<select name="currency"></select></label>
-        <label>Job URL<input type="url" name="url" maxlength="500" placeholder="https://…"></label>
-        <label class="full-width">Notes<textarea name="notes" maxlength="4000" rows="4" placeholder="Interview notes, preparation tasks, people to contact…"></textarea></label>
+        <label>Salary period<select name="salary_period"></select></label>
+        <label class="full-width">Job URL<input type="url" name="url" maxlength="500" placeholder="https://example.com/jobs/role"></label>
+        <label class="full-width">Notes<textarea name="notes" maxlength="4000" rows="5" placeholder="Interview context, preparation tasks, contacts, and next steps"></textarea></label>
       </div>
       <div class="dialog-actions">
-        <button type="button" class="secondary-button" id="cancel-dialog">Cancel</button>
-        <button type="submit" class="primary-button" id="save-application">Save application</button>
+        <button type="button" class="button button-secondary" id="cancel-dialog">Cancel</button>
+        <button type="submit" class="button button-primary" id="save-application">Save application</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="details-dialog" class="drawer" aria-labelledby="details-title">
+    <article>
+      <div class="dialog-header drawer-header">
+        <div><p class="eyebrow">APPLICATION DETAILS</p><h2 id="details-title">Opportunity</h2><p id="details-company"></p></div>
+        <button type="button" class="icon-button" id="close-details" aria-label="Close application details">×</button>
+      </div>
+      <div id="details-content" class="details-content"></div>
+      <footer class="drawer-actions">
+        <button type="button" class="button button-danger" id="delete-from-details">Delete</button>
+        <div>
+          <a class="button button-secondary" id="open-job-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Open job post</a>
+          <button type="button" class="button button-primary" id="edit-from-details">Edit application</button>
+        </div>
+      </footer>
+    </article>
+  </dialog>
+
+  <dialog id="import-dialog" class="modal modal-small" aria-labelledby="import-title">
+    <form id="import-form">
+      <div class="dialog-header">
+        <div><p class="eyebrow">RESTORE BACKUP</p><h2 id="import-title">Import applications</h2><p id="import-summary">Review the selected backup before importing it.</p></div>
+        <button type="button" class="icon-button" id="close-import" aria-label="Close import dialog">×</button>
+      </div>
+      <fieldset class="import-options">
+        <legend>How should the backup be imported?</legend>
+        <label><input type="radio" name="import_mode" value="append" checked><span><strong>Add to this workspace</strong><small>Keep current records and add the imported applications.</small></span></label>
+        <label><input type="radio" name="import_mode" value="replace"><span><strong>Replace this workspace</strong><small>Delete current records only after the full backup passes validation.</small></span></label>
+      </fieldset>
+      <div class="dialog-actions">
+        <button type="button" class="button button-secondary" id="cancel-import">Cancel</button>
+        <button type="submit" class="button button-primary" id="confirm-import">Import backup</button>
       </div>
     </form>
   </dialog>

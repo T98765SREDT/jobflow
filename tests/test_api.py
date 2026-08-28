@@ -33,10 +33,24 @@ class ApiTests(unittest.TestCase):
             data = response.read()
             return response.status, json.loads(data) if data else None
 
+    def error_request(self, path, *, method="GET", payload=None, body=None, headers=None):
+        if body is None and payload is not None:
+            body = json.dumps(payload).encode()
+        request = Request(
+            self.base_url + path,
+            data=body,
+            method=method,
+            headers=headers or {"Content-Type": "application/json"},
+        )
+        with self.assertRaises(HTTPError) as context:
+            urlopen(request, timeout=2)
+        return context.exception.code, json.loads(context.exception.read())
+
     def test_health_and_static_page(self):
         status, data = self.request("/api/health")
         self.assertEqual(status, 200)
         self.assertEqual(data["service"], "jobflow")
+        self.assertEqual(data["schema_version"], 2)
         with urlopen(self.base_url + "/", timeout=2) as response:
             self.assertIn(b"JobFlow", response.read())
 
@@ -60,6 +74,73 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(context.exception.code, 422)
         payload = json.loads(context.exception.read())
         self.assertIn("company", payload["fields"])
+
+    def test_patch_validates_the_merged_record(self):
+        payload = {
+            "company": "Patch Test", "role": "Developer", "status": "Applied", "work_mode": "Remote",
+            "salary_min": 25, "salary_max": 40, "salary_period": "Hourly",
+        }
+        _, created = self.request("/api/applications", method="POST", payload=payload)
+        status, error = self.error_request(
+            f"/api/applications/{created['id']}", method="PATCH", payload={"salary_max": 20}
+        )
+        self.assertEqual(status, 422)
+        self.assertIn("salary_max", error["fields"])
+        _, unchanged = self.request(f"/api/applications/{created['id']}")
+        self.assertEqual(unchanged["salary_max"], 40)
+
+    def test_query_validation_and_missing_static_asset(self):
+        status, error = self.error_request("/api/applications?limit=500")
+        self.assertEqual(status, 400)
+        self.assertIn("limit", error["fields"])
+        status, error = self.error_request("/missing.js")
+        self.assertEqual(status, 404)
+        self.assertEqual(error["error"], "File not found.")
+
+    def test_request_body_content_type_and_encoding_errors(self):
+        status, _ = self.error_request(
+            "/api/applications", method="POST", body=b"{}", headers={"Content-Type": "text/plain"}
+        )
+        self.assertEqual(status, 415)
+        status, error = self.error_request(
+            "/api/applications", method="POST", body=b"\xff", headers={"Content-Type": "application/json"}
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("UTF-8", error["error"])
+
+    def test_backup_import_is_atomic(self):
+        _, before = self.request("/api/export")
+        valid = {
+            "company": "Imported", "role": "QA Engineer", "status": "Applied", "work_mode": "Remote",
+            "salary_period": "Annual",
+        }
+        status, error = self.error_request(
+            "/api/import?mode=append", method="POST", payload={"applications": [valid, {"company": ""}]}
+        )
+        self.assertEqual(status, 422)
+        self.assertIn("applications.1.company", error["fields"])
+        _, unchanged = self.request("/api/export")
+        self.assertEqual(len(unchanged["applications"]), len(before["applications"]))
+
+        status, imported = self.request(
+            "/api/import?mode=append", method="POST", payload={"schema_version": 2, "applications": [valid]}
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(imported["imported"], 1)
+
+    def test_backup_rejects_unknown_or_future_schema(self):
+        status, error = self.error_request(
+            "/api/import?mode=append", method="POST",
+            payload={"schema_version": 99, "applications": []},
+        )
+        self.assertEqual(status, 422)
+        self.assertIn("schema_version", error["fields"])
+        status, error = self.error_request(
+            "/api/import?mode=append", method="POST",
+            payload={"applications": [], "unexpected": True},
+        )
+        self.assertEqual(status, 422)
+        self.assertIn("body", error["fields"])
 
 
 if __name__ == "__main__":
