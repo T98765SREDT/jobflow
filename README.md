@@ -1,4 +1,3 @@
-
 # JobFlow
 
 [![CI](https://github.com/T98765SREDT/jobflow/actions/workflows/ci.yml/badge.svg)](https://github.com/T98765SREDT/jobflow/actions/workflows/ci.yml)
@@ -6,40 +5,32 @@
 [![Runtime](https://img.shields.io/badge/runtime-Python%20stdlib-306998)](app.py)
 [![License](https://img.shields.io/badge/license-MIT-0b6e99)](LICENSE)
 
-JobFlow is a local-first job application tracker built with Python, SQLite, and vanilla JavaScript. It keeps applications, follow-up dates, notes, and pipeline metrics in one private workspace. The local app requires Python 3.9+ and no package installation.
+JobFlow is a local-first job application tracker built with Python, SQLite, and vanilla JavaScript. It keeps applications, follow-up dates, notes, saved views, and pipeline metrics in one workspace. The complete local app starts with one Python command and requires no package installation.
 
-[Interactive demo](https://t98765sredt.github.io/jobflow/static/?demo=1) · [Screenshot](docs/jobflow-dashboard.png) · [Quick start](#quick-start) · [API](#api-overview) · [Architecture](ARCHITECTURE.md)
+[Dashboard screenshot](docs/jobflow-dashboard.png) · [Browser demo source](static/index.html) · [Run locally](#run-the-complete-local-app) · [HTTP API](#http-api) · [Architecture](ARCHITECTURE.md) · [Security](SECURITY.md)
 
-[View the dashboard](docs/jobflow-dashboard.png) · [Read the architecture](ARCHITECTURE.md) · [Review the API](#api-overview) · [Run the test suite](#tests-and-checks)
-
-[View the dashboard](docs/jobflow-dashboard.png) · [Read the architecture](ARCHITECTURE.md) · [Review the API](#api-overview) · [Run the test suite](#run-tests)
+> **The Pages build and local app are different runtimes.** When GitHub Pages is enabled, it runs the browser interface with resettable synthetic data stored in `localStorage`; it cannot run the Python API or SQLite. Clone the repository to use the complete browser → API → validation → database path.
 
 ![JobFlow dashboard](docs/jobflow-dashboard.png)
 
-## Demo
+## What you can do
 
-The [GitHub Pages demo](https://t98765sredt.github.io/jobflow/static/?demo=1) supports the same add, edit, delete, search, saved views, pagination, export, import, and analytics interactions as the local interface. It uses an in-browser data adapter because GitHub Pages cannot run the Python API; demo changes persist in this browser and can be reset from the notice bar.
+- Create, edit, inspect, and delete applications with role, company, status, work mode, compensation, dates, source, URL, and notes.
+- Search the workspace, combine status and work-mode filters, sort results, and move through paginated records.
+- Switch between All, Active, Needs follow-up, Interviews, and Offers views; the current filters remain in the page URL.
+- See overdue and due-soon actions, the next five follow-ups, stage totals, and interview/offer response rate.
+- Download a versioned JSON backup or spreadsheet-safe CSV export.
+- Restore a JSON backup in append or replace mode. Every record is validated before the database changes, and replace mode runs in one transaction.
 
-Run the repository locally to exercise the full HTTP and SQLite path:
+## Browser demo
 
-```text
-Browser UI → JSON API → validation layer → SQLite
-```
+The static demo in [`static/`](static/) is ready to publish with GitHub Pages. It supports CRUD operations, search, saved views, filters, sorting, pagination, analytics, JSON backup/restore, and CSV export without a server. Until the Pages deployment is enabled, use the dashboard screenshot above or run the complete app locally.
 
-## What it does
+The demo contains fictional applications only. Changes remain in the current browser until you use **Reset demo** or clear the site's local storage.
 
-- Tracks role, company, status, work mode, salary range, source, dates, URL, and notes.
-- Supports create, edit, delete, text search, saved views, status/work-mode filters, pagination, and configurable sorting.
-- Shows overdue and due-soon follow-ups with a details drawer for salary, source, notes, and timestamps.
-- Exports a complete JSON backup or spreadsheet-safe CSV; imports are validated atomically in append or replace mode.
-- Calculates totals, active applications, interview/offer response signal, stage distribution, and the next five follow-ups.
-- Validates required fields, enum values, URL and ISO-date formats, salary ordering, field lengths, and request size at the server boundary.
-- Persists data through parameterized SQLite queries, transaction boundaries, and indexes used by common pipeline queries.
-- Can seed six synthetic applications on first run with `--seed-demo`, without re-seeding an existing database.
+## Run the complete local app
 
-## Quick start
-
-Clone the standalone repository and start the server:
+Requirements: Python 3.9 or newer.
 
 ```bash
 git clone https://github.com/T98765SREDT/jobflow.git
@@ -47,107 +38,107 @@ cd jobflow
 python3 app.py --seed-demo
 ```
 
-Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The first run creates `data/jobflow.db`. Host, port, and database path are configurable:
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The first run creates `data/jobflow.db`; `--seed-demo` adds six fictional applications only when the database is new. Omit that flag to start with an empty workspace.
+
+Host, port, and database path can be changed from the command line:
 
 ```bash
-python3 app.py --host 0.0.0.0 --port 8080 --db /tmp/jobflow-demo.db
+python3 app.py --host 127.0.0.1 --port 8080 --db /tmp/jobflow-demo.db
 ```
 
-## Tests and checks
+The same values can be set with `JOBFLOW_HOST`, `JOBFLOW_PORT`, and `JOBFLOW_DB`.
 
-```bash
-python3 -m unittest discover -s tests -v
-node --check static/app.js
-node --check static/demo-data.js
-```
-
-The `unittest` suite covers validation, CRUD operations, filters, analytics, backup/restore, static-file delivery, and API status behavior. It uses temporary databases and does not modify `data/jobflow.db`. GitHub Actions runs the Python suite on Python 3.9, 3.11, and 3.12 and checks both JavaScript files for syntax errors.
-
-## API overview
+## HTTP API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | `GET` | `/api/health` | Service health and version |
-| `GET` | `/api/meta/options` | Valid status, mode, and currency options |
-| `GET` | `/api/applications` | List, search, filter, and sort applications |
+| `GET` | `/api/meta/options` | Valid status, work-mode, currency, and salary-period options |
+| `GET` | `/api/applications` | Search, filter, sort, and paginate applications |
 | `POST` | `/api/applications` | Validate and create an application |
 | `GET` | `/api/applications/:id` | Retrieve one application |
-| `PATCH` | `/api/applications/:id` | Validate a partial update |
+| `PATCH` | `/api/applications/:id` | Validate and apply a partial update |
 | `DELETE` | `/api/applications/:id` | Delete an application |
-| `GET` | `/api/analytics` | Return pipeline totals and upcoming actions |
-| `GET` | `/api/export` | Return a versioned JSON backup |
+| `GET` | `/api/analytics` | Pipeline totals and upcoming actions |
+| `GET` | `/api/export` | Versioned JSON backup |
 | `POST` | `/api/import?mode=append\|replace` | Validate and restore a JSON backup atomically |
 
-List query parameters: `search`, `status`, `work_mode`, `sort`, `direction`, `view`, `page`, and `limit`.
-
-Example:
+List parameters are `search`, `status`, `work_mode`, `sort`, `direction`, `view`, `page`, and `limit`.
 
 ```bash
-curl "http://127.0.0.1:8000/api/applications?view=active&status=Interview&work_mode=Remote&page=1&limit=20"
+curl "http://127.0.0.1:8000/api/applications?view=active&work_mode=Remote&page=1&limit=20"
 curl "http://127.0.0.1:8000/api/export" > jobflow-backup.json
 ```
 
-`POST /api/import?mode=append|replace` accepts the JSON backup format and validates every record before changing the database. Replace mode is transactional: a failed backup leaves the existing workspace unchanged.
+The response rate shown in the dashboard is the number of applications currently at Interview or Offer divided by all submitted applications; Wishlist records are excluded.
+
+## Tests and verification
+
+The repository has 23 automated tests across validation, SQLite migrations and transactions, CRUD behavior, saved views, pagination, analytics, HTTP status handling, static-file delivery, and backup/restore.
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m compileall -q app.py jobflow tests
+node --check static/app.js
+node --check static/demo-data.js
+```
+
+Tests create temporary databases and do not modify `data/jobflow.db`. GitHub Actions runs the suite on Python 3.9, 3.11, and 3.12 and checks both browser JavaScript files.
 
 ## Architecture
 
 ```text
-Browser UI (HTML/CSS/JS)
+Browser UI (HTML/CSS/JavaScript)
         │ fetch + JSON
         ▼
 ThreadingHTTPServer + route handler
-        │ validated dictionaries
+        │ normalized records
         ▼
-Validation layer ── Database query layer
-                         │ transactions
+Validation layer ── SQLite query layer
+                         │ transaction
                          ▼
-                       SQLite
+                     local database
 ```
 
-- `app.py` parses runtime configuration and starts the service.
-- `jobflow/server.py` handles routing, JSON responses, static files, and HTTP status codes.
-- `jobflow/validation.py` centralizes normalization and user-facing field errors.
-- `jobflow/database.py` owns schema initialization, parameterized SQL, transactions, seeding, and analytics.
-- `static/` contains a framework-free responsive frontend with accessible labels, semantic tables, modal forms, and loading/empty/error states.
-- `tests/` covers the validation, persistence, and HTTP boundaries independently.
+- `app.py` reads runtime options and starts the server.
+- `jobflow/server.py` owns routes, request parsing, JSON responses, static files, and HTTP status codes.
+- `jobflow/validation.py` normalizes application data and returns field-level errors.
+- `jobflow/database.py` owns the schema, migrations, parameterized SQL, transactions, seeding, filters, and analytics.
+- `static/` contains the responsive interface and the browser-only demo adapter.
+- `tests/` checks the validation, persistence, and HTTP boundaries separately.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for design decisions and interview discussion notes.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the request lifecycle, backup boundary, and design decisions.
 
-### Project structure
+## Reliability and security boundaries
+
+- SQL values use parameters; selectable sort columns come from an allowlist.
+- Static paths are resolved against the public directory and checked before files are served.
+- JSON request bodies are limited to 1 MB, and invalid input returns structured field errors.
+- SQLite uses schema versioning, WAL mode, a busy timeout, and commit-or-rollback transactions.
+- Replace imports validate every application before existing records are deleted.
+- The server binds to `127.0.0.1` by default.
+
+JobFlow is a single-user local application. It has no authentication, authorization, encrypted storage, or public deployment configuration. Do not expose it directly to the internet or place confidential application data in the public browser demo. See [SECURITY.md](SECURITY.md) for the supported security scope.
+
+## Repository map
 
 ```text
-app.py                  command-line entry point
-jobflow/server.py       HTTP routing, JSON responses, static files
-jobflow/validation.py   payload normalization and field errors
-jobflow/database.py     schema, queries, transactions, analytics
-static/                 responsive browser UI and demo adapter
+app.py                  local command-line entry point
+jobflow/server.py       HTTP routing and JSON/static responses
+jobflow/validation.py   normalization and field validation
+jobflow/database.py     SQLite schema, queries, transactions, analytics
+static/                 responsive UI and GitHub Pages demo adapter
 tests/                  validation, database, and API tests
+docs/                   screenshot guidance and published image
 ```
 
-## Engineering notes
+Contribution checks are in [CONTRIBUTING.md](CONTRIBUTING.md), screenshot guidance is in [docs/README.md](docs/README.md), and user-visible changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
-The UI uses saved views, dense filters, and failure-recoverable states so a large application list remains scannable. The API owns normalization and validation; the database layer owns schema migration, parameterized queries, and commit-or-rollback transactions. The browser demo mirrors the same JSON contract and persists only synthetic records in local storage.
+## Planned next steps
 
-## Refreshing the screenshot
-
-Run `python3 app.py` with a fresh database, open `http://127.0.0.1:8000`, and capture the seeded, unfiltered dashboard. Replace `docs/jobflow-dashboard.png` with the new image.
-
-## Security and reliability notes
-
-- SQL values are always passed as parameters; sort columns are selected from an allowlist.
-- Static paths are resolved and checked to prevent directory traversal.
-- Request bodies are limited to 1 MB and validation failures return structured HTTP 422 errors; imports validate all records before a transaction.
-- Database mutations are committed atomically and rolled back on failure.
-- The app intentionally binds to `127.0.0.1` by default. It is a portfolio/local tool, not a production authentication system.
-
-See [SECURITY.md](SECURITY.md) for deployment scope and private reporting guidance. Contribution checks are documented in [CONTRIBUTING.md](CONTRIBUTING.md), and version notes are listed in [CHANGELOG.md](CHANGELOG.md).
-
-## Future improvements
-
-- User authentication and per-user workspaces
-- Kanban drag-and-drop view
-- Production WSGI/ASGI adapter and deployment configuration
-- End-to-end browser tests
+- Add an optional Kanban view without replacing the table workflow.
+- Add calendar export for follow-up dates.
+- Add a browser-level smoke test for the primary application workflow.
 
 ## License
 
