@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import contextmanager
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -32,9 +32,19 @@ CREATE TABLE IF NOT EXISTS applications (
 CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 CREATE INDEX IF NOT EXISTS idx_applications_next_action ON applications(next_action_date);
 CREATE INDEX IF NOT EXISTS idx_applications_company ON applications(company);
+CREATE TABLE IF NOT EXISTS application_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    application_id INTEGER NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    details TEXT NOT NULL DEFAULT '',
+    occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_application_events_application ON application_events(application_id, occurred_at DESC, id DESC);
 """
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 FIELDS = (
     "company", "role", "location", "work_mode", "status", "source", "url",
@@ -164,6 +174,14 @@ class Database:
                 f"INSERT INTO applications ({', '.join(FIELDS)}) VALUES ({', '.join('?' for _ in FIELDS)})",
                 values,
             )
+            event_type = "applied" if data.get("status") != "Wishlist" else "custom"
+            self._insert_event(
+                connection,
+                int(cursor.lastrowid),
+                event_type,
+                "Application added",
+                "Application entered the JobFlow workspace.",
+            )
             row = connection.execute("SELECT * FROM applications WHERE id = ?", (cursor.lastrowid,)).fetchone()
             return dict(row)
 
@@ -173,12 +191,41 @@ class Database:
         assignments = ", ".join(f"{field} = ?" for field in data)
         values = list(data.values()) + [application_id]
         with self.connect() as connection:
+            existing = connection.execute("SELECT * FROM applications WHERE id = ?", (application_id,)).fetchone()
+            if existing is None:
+                return None
             cursor = connection.execute(
                 f"UPDATE applications SET {assignments}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 values,
             )
             if cursor.rowcount == 0:
                 return None
+            old = dict(existing)
+            if "status" in data and data["status"] != old["status"]:
+                self._insert_event(
+                    connection,
+                    application_id,
+                    "status_changed",
+                    f"Status changed to {data['status']}",
+                    f"Previous status: {old['status']}",
+                )
+            if "next_action_date" in data and data["next_action_date"] != old["next_action_date"]:
+                next_action = data["next_action_date"] or "No date"
+                self._insert_event(
+                    connection,
+                    application_id,
+                    "follow_up",
+                    "Follow-up date updated",
+                    f"Next action: {next_action}",
+                )
+            if "notes" in data and data["notes"] != old["notes"]:
+                self._insert_event(
+                    connection,
+                    application_id,
+                    "note",
+                    "Notes updated",
+                    data["notes"] or "Notes cleared.",
+                )
             row = connection.execute("SELECT * FROM applications WHERE id = ?", (application_id,)).fetchone()
             return dict(row)
 
@@ -186,11 +233,65 @@ class Database:
         with self.connect() as connection:
             return connection.execute("DELETE FROM applications WHERE id = ?", (application_id,)).rowcount > 0
 
+    @staticmethod
+    def _insert_event(
+        connection: sqlite3.Connection,
+        application_id: int,
+        event_type: str,
+        title: str,
+        details: str = "",
+        occurred_at: str | None = None,
+    ) -> None:
+        timestamp = occurred_at or datetime.now(timezone.utc).isoformat(timespec="seconds")
+        connection.execute(
+            "INSERT INTO application_events (application_id, event_type, title, details, occurred_at) VALUES (?, ?, ?, ?, ?)",
+            (application_id, event_type, title, details, timestamp),
+        )
+
+    def list_events(self, application_id: int) -> list[dict[str, Any]]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM application_events WHERE application_id = ? ORDER BY occurred_at DESC, id DESC",
+                (application_id,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def create_event(self, application_id: int, data: dict[str, Any]) -> dict[str, Any] | None:
+        with self.connect() as connection:
+            if connection.execute("SELECT 1 FROM applications WHERE id = ?", (application_id,)).fetchone() is None:
+                return None
+            self._insert_event(
+                connection,
+                application_id,
+                data["event_type"],
+                data["title"],
+                data.get("details", ""),
+                data.get("occurred_at"),
+            )
+            row = connection.execute("SELECT * FROM application_events WHERE id = last_insert_rowid()").fetchone()
+            return dict(row)
+
+    def delete_event(self, application_id: int, event_id: int) -> bool:
+        with self.connect() as connection:
+            return connection.execute(
+                "DELETE FROM application_events WHERE id = ? AND application_id = ?",
+                (event_id, application_id),
+            ).rowcount > 0
+
     def export_applications(self) -> list[dict[str, Any]]:
         """Return all application records in stable creation order for backup."""
         with self.connect() as connection:
             rows = connection.execute("SELECT * FROM applications ORDER BY id ASC").fetchall()
-            return [dict(row) for row in rows]
+            applications = [dict(row) for row in rows]
+            events = connection.execute(
+                "SELECT * FROM application_events ORDER BY application_id ASC, occurred_at ASC, id ASC"
+            ).fetchall()
+            events_by_application: dict[int, list[dict[str, Any]]] = {}
+            for event in events:
+                events_by_application.setdefault(int(event["application_id"]), []).append(dict(event))
+            for application in applications:
+                application["events"] = events_by_application.get(int(application["id"]), [])
+            return applications
 
     def import_applications(self, records: list[dict[str, Any]], *, replace: bool = False) -> int:
         """Insert a validated backup atomically, optionally replacing current data."""
@@ -202,6 +303,20 @@ class Database:
                 f"INSERT INTO applications ({', '.join(FIELDS)}) VALUES ({placeholders})",
                 [[record.get(field) for field in FIELDS] for record in records],
             )
+            if records:
+                imported_rows = connection.execute(
+                    "SELECT id FROM applications ORDER BY id DESC LIMIT ?", (len(records),)
+                ).fetchall()
+                for row, record in zip(reversed(imported_rows), records):
+                    for event in record.get("events", []):
+                        self._insert_event(
+                            connection,
+                            int(row["id"]),
+                            event["event_type"],
+                            event["title"],
+                            event.get("details", ""),
+                            event.get("occurred_at"),
+                        )
         return len(records)
 
     def analytics(self) -> dict[str, Any]:
@@ -225,6 +340,45 @@ class Database:
             upcoming = connection.execute(
                 "SELECT * FROM applications WHERE next_action_date IS NOT NULL AND status != 'Rejected' ORDER BY next_action_date ASC LIMIT 5"
             ).fetchall()
+            attention_total = connection.execute(
+                """
+                SELECT COUNT(*) FROM applications
+                WHERE status != 'Rejected' AND (
+                    (next_action_date IS NOT NULL AND next_action_date <= ?)
+                    OR (next_action_date IS NULL AND status IN ('Applied', 'Interview', 'Offer'))
+                )
+                """,
+                (due_soon,),
+            ).fetchone()[0]
+            attention = connection.execute(
+                """
+                SELECT *,
+                    CASE
+                        WHEN next_action_date < ? THEN 'overdue'
+                        WHEN next_action_date = ? THEN 'today'
+                        WHEN next_action_date IS NOT NULL AND next_action_date <= ? THEN 'due_soon'
+                        ELSE 'missing'
+                    END AS attention_type
+                FROM applications
+                WHERE status != 'Rejected' AND (
+                    (next_action_date IS NOT NULL AND next_action_date <= ?)
+                    OR (next_action_date IS NULL AND status IN ('Applied', 'Interview', 'Offer'))
+                )
+                ORDER BY
+                    CASE
+                        WHEN next_action_date < ? THEN 0
+                        WHEN next_action_date = ? THEN 1
+                        WHEN next_action_date IS NOT NULL THEN 2
+                        ELSE 3
+                    END,
+                    CASE WHEN next_action_date IS NULL THEN 1 ELSE 0 END,
+                    next_action_date ASC,
+                    updated_at DESC,
+                    id DESC
+                LIMIT 8
+                """,
+                (today, today, due_soon, due_soon, today, today),
+            ).fetchall()
         status_counts = {row["status"]: row["count"] for row in status_rows}
         return {
             "total": total,
@@ -234,7 +388,9 @@ class Database:
             "response_rate": round((interviews / submitted) * 100) if submitted else 0,
             "overdue": overdue,
             "due_soon": due_soon_count,
+            "attention_total": attention_total,
             "by_status": status_counts,
             "by_work_mode": {row["work_mode"]: row["count"] for row in mode_rows},
             "upcoming": [dict(row) for row in upcoming],
+            "attention": [dict(row) for row in attention],
         }

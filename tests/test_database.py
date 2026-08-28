@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import sqlite3
+from datetime import date, timedelta
 from pathlib import Path
 
 from jobflow.database import Database
@@ -31,6 +32,35 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(updated["status"], "Interview")
         self.assertTrue(self.database.delete_application(created["id"]))
         self.assertIsNone(self.database.get_application(created["id"]))
+
+    def test_activity_events_follow_application_lifecycle(self):
+        created = self.database.create_application(self.payload)
+        initial_events = self.database.list_events(created["id"])
+        self.assertEqual(len(initial_events), 1)
+        self.assertEqual(initial_events[0]["event_type"], "applied")
+
+        self.database.update_application(created["id"], {"status": "Interview", "next_action_date": "2026-08-30", "notes": "Prepare interview notes"})
+        events = self.database.list_events(created["id"])
+        self.assertEqual({event["event_type"] for event in events}, {"applied", "status_changed", "follow_up", "note"})
+
+        self.assertTrue(self.database.delete_application(created["id"]))
+        self.assertEqual(self.database.list_events(created["id"]), [])
+
+    def test_export_and_import_preserve_activity_events(self):
+        created = self.database.create_application(self.payload)
+        self.database.create_event(created["id"], {
+            "event_type": "interview",
+            "title": "Technical interview",
+            "details": "Discuss API design.",
+            "occurred_at": "2026-08-27T09:00:00+00:00",
+        })
+        exported = self.database.export_applications()
+        self.assertEqual(len(exported[0]["events"]), 2)
+
+        self.database.delete_application(created["id"])
+        self.database.import_applications(exported)
+        restored = self.database.export_applications()
+        self.assertEqual(len(restored[0]["events"]), 2)
 
     def test_search_and_filters(self):
         self.database.create_application(self.payload)
@@ -64,6 +94,29 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(analytics["active"], 2)
         self.assertEqual(analytics["interviews"], 1)
         self.assertEqual(analytics["response_rate"], 50)
+
+    def test_analytics_prioritizes_attention_queue(self):
+        today = date.today()
+        self.database.create_application({
+            **self.payload,
+            "company": "Overdue Co",
+            "next_action_date": str(today - timedelta(days=1)),
+        })
+        self.database.create_application({
+            **self.payload,
+            "company": "Missing Step",
+            "next_action_date": None,
+        })
+        self.database.create_application({
+            **self.payload,
+            "company": "Closed Co",
+            "status": "Rejected",
+            "next_action_date": str(today - timedelta(days=2)),
+        })
+        analytics = self.database.analytics()
+        self.assertEqual(analytics["attention_total"], 2)
+        self.assertEqual([item["company"] for item in analytics["attention"]], ["Overdue Co", "Missing Step"])
+        self.assertEqual([item["attention_type"] for item in analytics["attention"]], ["overdue", "missing"])
 
     def test_wishlist_does_not_change_interview_share(self):
         self.database.create_application({**self.payload, "company": "Interview", "status": "Interview"})
@@ -100,7 +153,7 @@ class DatabaseTests(unittest.TestCase):
         record = database.export_applications()[0]
         self.assertEqual(record["salary_period"], "Annual")
         with database.connect() as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 2)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 3)
 
     def test_failed_replace_import_rolls_back(self):
         self.database.create_application(self.payload)

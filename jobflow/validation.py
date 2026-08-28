@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlparse
@@ -12,6 +12,7 @@ STATUSES = ("Wishlist", "Applied", "Interview", "Offer", "Rejected")
 WORK_MODES = ("Remote", "Hybrid", "On-site")
 CURRENCIES = ("USD", "EUR", "JPY", "GBP", "CNY")
 SALARY_PERIODS = ("Hourly", "Monthly", "Annual")
+EVENT_TYPES = ("applied", "status_changed", "interview", "follow_up", "note", "offer", "rejection", "custom")
 
 ALLOWED_FIELDS = {
     "company",
@@ -159,3 +160,43 @@ def validate_application(payload: Any, *, partial: bool = False) -> dict[str, An
     if errors:
         raise ValidationError(errors)
     return cleaned
+
+
+def validate_event(payload: Any, *, partial: bool = False) -> dict[str, Any]:
+    """Validate one application timeline event."""
+
+    if not isinstance(payload, dict):
+        raise ValidationError({"body": "Expected a JSON object."})
+    allowed = {"event_type", "title", "details", "occurred_at"}
+    errors: dict[str, str] = {}
+    unknown = set(payload) - allowed
+    if unknown:
+        errors["body"] = f"Unknown fields: {', '.join(sorted(unknown))}."
+
+    event_type = _text(payload.get("event_type"))
+    title = _text(payload.get("title"))
+    details = _text(payload.get("details"))
+    occurred_at = _text(payload.get("occurred_at"))
+    if not partial or "event_type" in payload:
+        if event_type not in EVENT_TYPES:
+            errors["event_type"] = f"Choose one of: {', '.join(EVENT_TYPES)}."
+    if not partial or "title" in payload:
+        if not title:
+            errors["title"] = "This field is required."
+        elif len(title) > 160:
+            errors["title"] = "Must be 160 characters or fewer."
+    if "details" in payload and len(details) > 4_000:
+        errors["details"] = "Must be 4000 characters or fewer."
+    if occurred_at:
+        try:
+            datetime.fromisoformat(occurred_at.replace("Z", "+00:00"))
+        except ValueError:
+            errors["occurred_at"] = "Use an ISO date-time value."
+    if errors:
+        raise ValidationError(errors)
+    return {
+        "event_type": event_type,
+        "title": title,
+        "details": details,
+        "occurred_at": occurred_at or None,
+    }

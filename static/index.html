@@ -40,7 +40,7 @@
         <span class="state-dot" aria-hidden="true"></span>
         <div><strong>Local workspace</strong><small>SQLite · Stored on device</small></div>
       </div>
-      <footer><span>JobFlow</span><span id="app-version">v1.1</span></footer>
+      <footer><span>JobFlow</span><span id="app-version">v1.1.0</span></footer>
     </aside>
 
     <main id="main-content" tabindex="-1">
@@ -48,7 +48,7 @@
         <div>
           <p class="eyebrow">APPLICATION PIPELINE</p>
           <h1>Keep every opportunity moving.</h1>
-          <p class="subtitle">Track decisions, deadlines, and follow-ups in one private workspace.</p>
+          <p class="subtitle">Track decisions, deadlines, and follow-ups in one local workspace.</p>
         </div>
         <div class="header-actions" aria-label="Workspace actions">
           <button class="button button-secondary" id="import-trigger" type="button">
@@ -64,13 +64,14 @@
             <div class="action-menu" id="export-menu" role="menu" hidden>
               <button type="button" role="menuitem" data-export="json"><strong>JSON backup</strong><small>Restore all application data later</small></button>
               <button type="button" role="menuitem" data-export="csv"><strong>CSV spreadsheet</strong><small>Review or analyze outside JobFlow</small></button>
+              <button type="button" role="menuitem" data-export="calendar"><strong>Follow-up calendar</strong><small>Add dated next actions to your calendar</small></button>
             </div>
           </div>
           <button class="button button-primary" id="add-application" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             Add application
           </button>
-          <input id="import-file" type="file" accept="application/json,.json" hidden>
+          <input id="import-file" type="file" accept="application/json,.json,text/csv,.csv" hidden>
         </div>
       </header>
 
@@ -132,7 +133,7 @@
           <label class="search-field">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
             <span class="sr-only">Search applications</span>
-            <input id="search" type="search" placeholder="Search company, role, location, or notes" autocomplete="off">
+            <input id="search" type="search" placeholder="Search company, role, location, or notes" autocomplete="off" aria-keyshortcuts="Control+K Meta+K">
           </label>
           <label><span class="sr-only">Filter by status</span><select id="status-filter"><option value="">All statuses</option></select></label>
           <label><span class="sr-only">Filter by work mode</span><select id="mode-filter"><option value="">All work modes</option></select></label>
@@ -145,7 +146,7 @@
           <table>
             <caption class="sr-only">Job applications matching the current filters</caption>
             <thead><tr><th>Opportunity</th><th>Status</th><th>Work mode</th><th>Applied</th><th>Next action</th><th><span class="sr-only">Actions</span></th></tr></thead>
-            <tbody id="applications-body"></tbody>
+            <tbody id="applications-body" aria-live="polite"></tbody>
           </table>
           <div class="empty-state" id="empty-state" hidden>
             <span class="empty-icon" aria-hidden="true">⌕</span>
@@ -175,6 +176,10 @@
           <div class="panel-heading"><div><p class="eyebrow">NEXT ACTIONS</p><h2>Follow-up queue</h2></div><span>Nearest five</span></div>
           <div id="upcoming-list" class="upcoming-list"></div>
         </article>
+        <article class="panel attention-panel" aria-labelledby="attention-title">
+          <div class="panel-heading"><div><p class="eyebrow">WORK QUEUE</p><h2 id="attention-title">Needs attention</h2></div><span id="attention-summary">Prioritized items</span></div>
+          <div id="attention-list" class="attention-list" aria-live="polite"></div>
+        </article>
       </section>
     </main>
   </div>
@@ -185,7 +190,7 @@
         <div><p class="eyebrow">APPLICATION RECORD</p><h2 id="dialog-title">Add application</h2><p>Fields marked with an asterisk are required.</p></div>
         <button type="button" class="icon-button" id="close-dialog" aria-label="Close application form">×</button>
       </div>
-      <div class="form-errors" id="form-errors" role="alert" hidden></div>
+      <div class="form-errors" id="form-errors" role="alert" tabindex="-1" hidden></div>
       <input type="hidden" name="id">
       <div class="form-grid">
         <label>Company <span aria-hidden="true">*</span><input name="company" maxlength="120" required placeholder="Northstar Labs"></label>
@@ -245,8 +250,40 @@
     </form>
   </dialog>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog id="csv-dialog" class="modal csv-modal" aria-labelledby="csv-title">
+    <form id="csv-form">
+      <div class="dialog-header">
+        <div><p class="eyebrow">IMPORT SPREADSHEET</p><h2 id="csv-title">Map CSV columns</h2><p id="csv-summary">Review the detected columns before adding records.</p></div>
+        <button type="button" class="icon-button" id="close-csv" aria-label="Close CSV import dialog">×</button>
+      </div>
+      <div class="csv-help">Required fields are <strong>Company</strong> and <strong>Role</strong>. Unmapped status defaults to Wishlist and work mode defaults to Remote.</div>
+      <div id="csv-map-grid" class="csv-map-grid"></div>
+      <div id="csv-preview" class="csv-preview" role="status" aria-live="polite"></div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-secondary" id="cancel-csv">Cancel</button>
+        <button type="submit" class="button button-primary" id="confirm-csv" disabled>Import rows</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="modal modal-small confirm-modal" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="dialog-header">
+      <div><p class="eyebrow">CONFIRM ACTION</p><h2 id="confirm-title">Are you sure?</h2><p id="confirm-message">This action cannot be undone.</p></div>
+      <button type="button" class="icon-button" id="close-confirm" aria-label="Cancel">×</button>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="button button-secondary" id="cancel-confirm">Cancel</button>
+      <button type="button" class="button button-danger" id="accept-confirm">Confirm</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span id="toast-message"></span>
+    <button class="toast-action" id="toast-action" type="button" hidden>Undo</button>
+    <button class="toast-close" id="toast-close" type="button" aria-label="Dismiss notification">×</button>
+  </div>
   <script src="demo-data.js" defer></script>
+  <script src="csv.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

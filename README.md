@@ -18,13 +18,17 @@ JobFlow is a local-first job application tracker built with Python, SQLite, and 
 - Create, edit, inspect, and delete applications with role, company, status, work mode, compensation, dates, source, URL, and notes.
 - Search the workspace, combine status and work-mode filters, sort results, and move through paginated records.
 - Switch between All, Active, Needs follow-up, Interviews, and Offers views; the current filters remain in the page URL.
-- See overdue and due-soon actions, the next five follow-ups, stage totals, and interview/offer response rate.
+- See overdue and due-soon actions, a prioritized needs-attention queue, the next five follow-ups, stage totals, and interview/offer response rate.
 - Download a versioned JSON backup or spreadsheet-safe CSV export.
-- Restore a JSON backup in append or replace mode. Every record is validated before the database changes, and replace mode runs in one transaction.
+- Import a CSV from a spreadsheet with a preview, automatic header matching, manual column mapping, duplicate-row skipping, and one validated write.
+- Export dated next actions as an iCalendar (`.ics`) file for a personal calendar.
+- Restore a JSON backup in append or replace mode. Every record and its activity timeline are validated before the database changes, and replace mode runs in one transaction.
+- Review an activity timeline for each application; status, follow-up-date, and note changes are recorded automatically, while interviews and custom updates can be added manually.
+- Use a keyboard-friendly confirmation flow for destructive actions, focus the search box with `Cmd/Ctrl+K`, and keep screen-reader status updates attached to result changes.
 
 ## Browser demo
 
-The static demo in [`static/`](static/) is ready to publish with GitHub Pages. It supports CRUD operations, search, saved views, filters, sorting, pagination, analytics, JSON backup/restore, and CSV export without a server. Until the Pages deployment is enabled, use the dashboard screenshot above or run the complete app locally.
+The static demo in [`static/`](static/) is ready to publish with GitHub Pages. It supports CRUD operations, search, saved views, filters, sorting, pagination, analytics, JSON backup/restore, CSV import/export, and calendar export without a server. A ready-to-try mapping fixture is included at [`examples/applications.csv`](examples/applications.csv). Until the Pages deployment is enabled, use the dashboard screenshot above or run the complete app locally.
 
 The demo contains fictional applications only. Changes remain in the current browser until you use **Reset demo** or clear the site's local storage.
 
@@ -59,7 +63,10 @@ The same values can be set with `JOBFLOW_HOST`, `JOBFLOW_PORT`, and `JOBFLOW_DB`
 | `GET` | `/api/applications/:id` | Retrieve one application |
 | `PATCH` | `/api/applications/:id` | Validate and apply a partial update |
 | `DELETE` | `/api/applications/:id` | Delete an application |
-| `GET` | `/api/analytics` | Pipeline totals and upcoming actions |
+| `GET` | `/api/applications/:id/events` | Retrieve the application activity timeline |
+| `POST` | `/api/applications/:id/events` | Add an interview, follow-up, note, or custom activity |
+| `DELETE` | `/api/applications/:id/events/:event_id` | Remove one timeline entry |
+| `GET` | `/api/analytics` | Pipeline totals, upcoming actions, and a prioritized attention queue |
 | `GET` | `/api/export` | Versioned JSON backup |
 | `POST` | `/api/import?mode=append\|replace` | Validate and restore a JSON backup atomically |
 
@@ -74,16 +81,18 @@ The response rate shown in the dashboard is the number of applications currently
 
 ## Tests and verification
 
-The repository has 23 automated tests across validation, SQLite migrations and transactions, CRUD behavior, saved views, pagination, analytics, HTTP status handling, static-file delivery, and backup/restore.
+The repository has 27 Python tests plus 3 browser-side CSV checks across validation, SQLite migrations and transactions, CRUD behavior, saved views, pagination, analytics and attention prioritization, activity events, HTTP status handling, static-file delivery, CSV mapping, and backup/restore.
 
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m compileall -q app.py jobflow tests
 node --check static/app.js
 node --check static/demo-data.js
+node --check static/csv.js
+node --test tests/csv.test.mjs
 ```
 
-Tests create temporary databases and do not modify `data/jobflow.db`. GitHub Actions runs the suite on Python 3.9, 3.11, and 3.12 and checks both browser JavaScript files.
+Tests create temporary databases and do not modify `data/jobflow.db`. GitHub Actions runs the suite on Python 3.9, 3.11, and 3.12 and checks all browser JavaScript files plus the CSV parser tests.
 
 ## Architecture
 
@@ -104,7 +113,7 @@ Validation layer ── SQLite query layer
 - `jobflow/server.py` owns routes, request parsing, JSON responses, static files, and HTTP status codes.
 - `jobflow/validation.py` normalizes application data and returns field-level errors.
 - `jobflow/database.py` owns the schema, migrations, parameterized SQL, transactions, seeding, filters, and analytics.
-- `static/` contains the responsive interface and the browser-only demo adapter.
+- `static/` contains the responsive interface, CSV mapping helpers, and the browser-only demo adapter.
 - `tests/` checks the validation, persistence, and HTTP boundaries separately.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the request lifecycle, backup boundary, and design decisions.
@@ -127,8 +136,9 @@ app.py                  local command-line entry point
 jobflow/server.py       HTTP routing and JSON/static responses
 jobflow/validation.py   normalization and field validation
 jobflow/database.py     SQLite schema, queries, transactions, analytics
-static/                 responsive UI and GitHub Pages demo adapter
+static/                 responsive UI, CSV mapping helpers, and GitHub Pages demo adapter
 tests/                  validation, database, and API tests
+examples/               import fixtures for the browser workflow
 docs/                   screenshot guidance and published image
 ```
 
@@ -137,7 +147,6 @@ Contribution checks are in [CONTRIBUTING.md](CONTRIBUTING.md), screenshot guidan
 ## Planned next steps
 
 - Add an optional Kanban view without replacing the table workflow.
-- Add calendar export for follow-up dates.
 - Add a browser-level smoke test for the primary application workflow.
 
 ## License

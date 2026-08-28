@@ -50,9 +50,19 @@ class ApiTests(unittest.TestCase):
         status, data = self.request("/api/health")
         self.assertEqual(status, 200)
         self.assertEqual(data["service"], "jobflow")
-        self.assertEqual(data["schema_version"], 2)
+        self.assertEqual(data["schema_version"], 3)
         with urlopen(self.base_url + "/", timeout=2) as response:
-            self.assertIn(b"JobFlow", response.read())
+            page = response.read()
+            self.assertIn(b"JobFlow", page)
+            self.assertIn(b'id="confirm-dialog"', page)
+            self.assertIn(b'aria-keyshortcuts="Control+K Meta+K"', page)
+            self.assertIn(b'data-export="calendar"', page)
+            self.assertIn(b'id="toast-action"', page)
+            self.assertIn(b'id="attention-list"', page)
+            self.assertIn(b'id="csv-dialog"', page)
+            with urlopen(self.base_url + "/csv.js", timeout=2) as csv_response:
+                self.assertEqual(csv_response.status, 200)
+                self.assertIn(b"JobFlowCsv", csv_response.read())
 
     def test_create_update_and_delete(self):
         payload = {"company": "API Test", "role": "Developer", "status": "Applied", "work_mode": "Remote"}
@@ -63,6 +73,28 @@ class ApiTests(unittest.TestCase):
         status, data = self.request(f"/api/applications/{created['id']}", method="DELETE")
         self.assertEqual(status, 204)
         self.assertIsNone(data)
+
+    def test_application_events_api(self):
+        payload = {"company": "Timeline API", "role": "Engineer", "status": "Applied", "work_mode": "Remote"}
+        _, created = self.request("/api/applications", method="POST", payload=payload)
+        application_id = created["id"]
+
+        status, event = self.request(
+            f"/api/applications/{application_id}/events",
+            method="POST",
+            payload={"event_type": "interview", "title": "Technical interview", "details": "Prepare API examples."},
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(event["event_type"], "interview")
+
+        status, events = self.request(f"/api/applications/{application_id}/events")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(events), 2)
+        status, _ = self.request(f"/api/applications/{application_id}/events/{event['id']}", method="DELETE")
+        self.assertEqual(status, 204)
+        status, events = self.request(f"/api/applications/{application_id}/events")
+        self.assertEqual(status, 200)
+        self.assertEqual(len(events), 1)
 
     def test_validation_error_response(self):
         request = Request(

@@ -21,6 +21,10 @@ SQLite is appropriate for this local-first portfolio tool because it gives durab
 
 `GET /api/export` returns a versioned JSON document. `POST /api/import` strips record metadata, validates every application against the current domain contract, and then inserts the batch in one transaction. Replace mode deletes existing rows only inside that same transaction, so a malformed record cannot leave a partially restored workspace. The browser demo mirrors this contract with a versioned local-storage record and the same append/replace choice.
 
+## CSV import boundary
+
+CSV import is deliberately a browser-side workflow: `static/csv.js` parses quoted fields and multiline records without a runtime dependency, infers common English and Chinese headers, and lets the user correct the mapping before any write occurs. Amounts, status labels, and work modes are normalized through the same browser validation rules used by the demo adapter. Rows missing required fields are reported in the preview, duplicate company-and-role pairs are skipped, and the accepted batch is written through one append operation. The complete local Python app keeps JSON import as its server-side backup contract; CSV is an onboarding convenience for spreadsheet users.
+
 ## Five likely interview questions
 
 ### 1. Why did you avoid Flask or React?

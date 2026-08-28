@@ -21,11 +21,14 @@ from .validation import (
     STATUSES,
     WORK_MODES,
     ValidationError,
+    validate_event,
     validate_application,
 )
 
 
 APPLICATION_ROUTE = re.compile(r"^/api/applications/(\d+)$")
+EVENTS_ROUTE = re.compile(r"^/api/applications/(\d+)/events$")
+EVENT_ROUTE = re.compile(r"^/api/applications/(\d+)/events/(\d+)$")
 LIST_PARAMETERS = {"search", "status", "work_mode", "sort", "direction", "view", "page", "limit"}
 SORT_FIELDS = {"updated_at", "applied_date", "next_action_date", "company", "status"}
 VIEWS = {"all", "active", "follow-up", "interview", "offers"}
@@ -78,6 +81,20 @@ class JobFlowHandler(BaseHTTPRequestHandler):
                 self._json(self.server.database.list_applications(self._validate_list_query(query)))
             except ValidationError as error:
                 self._json({"error": "Invalid query parameters.", "fields": error.errors}, HTTPStatus.BAD_REQUEST)
+        elif match := EVENTS_ROUTE.match(parsed.path):
+            application_id = int(match.group(1))
+            if not self.server.database.get_application(application_id):
+                self._error(HTTPStatus.NOT_FOUND, "Application not found.")
+            else:
+                self._json(self.server.database.list_events(application_id))
+        elif match := EVENT_ROUTE.match(parsed.path):
+            application_id, event_id = map(int, match.groups())
+            if not self.server.database.get_application(application_id):
+                self._error(HTTPStatus.NOT_FOUND, "Application not found.")
+            else:
+                events = self.server.database.list_events(application_id)
+                event = next((item for item in events if item["id"] == event_id), None)
+                self._json(event) if event else self._error(HTTPStatus.NOT_FOUND, "Event not found.")
         elif match := APPLICATION_ROUTE.match(parsed.path):
             record = self.server.database.get_application(int(match.group(1)))
             self._json(record) if record else self._error(HTTPStatus.NOT_FOUND, "Application not found.")
@@ -90,6 +107,18 @@ class JobFlowHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/import":
             self._import(parsed)
+            return
+        if match := EVENTS_ROUTE.match(parsed.path):
+            try:
+                event = self.server.database.create_event(int(match.group(1)), validate_event(self._read_json()))
+                if event is None:
+                    self._error(HTTPStatus.NOT_FOUND, "Application not found.")
+                else:
+                    self._json(event, HTTPStatus.CREATED)
+            except ValidationError as error:
+                self._json({"error": "Validation failed.", "fields": error.errors}, HTTPStatus.UNPROCESSABLE_ENTITY)
+            except RequestBodyError as error:
+                self._error(error.status, str(error))
             return
         if parsed.path != "/api/applications":
             self._error(HTTPStatus.NOT_FOUND, "API route not found.")
@@ -135,6 +164,16 @@ class JobFlowHandler(BaseHTTPRequestHandler):
             self._error(error.status, str(error))
 
     def do_DELETE(self) -> None:  # noqa: N802
+        event_match = EVENT_ROUTE.match(urlparse(self.path).path)
+        if event_match:
+            application_id, event_id = map(int, event_match.groups())
+            if self.server.database.delete_event(application_id, event_id):
+                self.send_response(HTTPStatus.NO_CONTENT)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            else:
+                self._error(HTTPStatus.NOT_FOUND, "Event not found.")
+            return
         match = APPLICATION_ROUTE.match(urlparse(self.path).path)
         if not match:
             self._error(HTTPStatus.NOT_FOUND, "API route not found.")
@@ -213,7 +252,7 @@ class JobFlowHandler(BaseHTTPRequestHandler):
                 raise ValidationError({"applications": "A backup can contain at most 5,000 records."})
             cleaned: list[dict[str, Any]] = []
             errors: dict[str, str] = {}
-            metadata_fields = {"id", "created_at", "updated_at"}
+            metadata_fields = {"id", "created_at", "updated_at", "events"}
             for index, record in enumerate(records):
                 if not isinstance(record, dict):
                     errors[f"applications.{index}"] = "Expected an object."
@@ -223,7 +262,32 @@ class JobFlowHandler(BaseHTTPRequestHandler):
                     errors[f"applications.{index}"] = f"Unknown fields: {', '.join(sorted(unknown))}."
                     continue
                 try:
-                    cleaned.append(validate_application({key: record[key] for key in ALLOWED_FIELDS if key in record}))
+                    cleaned_record = validate_application({key: record[key] for key in ALLOWED_FIELDS if key in record})
+                    raw_events = record.get("events", [])
+                    if not isinstance(raw_events, list):
+                        errors[f"applications.{index}.events"] = "Expected an array."
+                        continue
+                    if len(raw_events) > 100:
+                        errors[f"applications.{index}.events"] = "An application can contain at most 100 events."
+                        continue
+                    cleaned_events: list[dict[str, Any]] = []
+                    for event_index, event in enumerate(raw_events):
+                        if not isinstance(event, dict):
+                            errors[f"applications.{index}.events.{event_index}"] = "Expected an object."
+                            continue
+                        try:
+                            event_metadata = {"id", "application_id", "created_at"}
+                            unknown_event = set(event) - {"event_type", "title", "details", "occurred_at"} - event_metadata
+                            if unknown_event:
+                                errors[f"applications.{index}.events.{event_index}"] = f"Unknown fields: {', '.join(sorted(unknown_event))}."
+                                continue
+                            event_payload = {key: event[key] for key in ("event_type", "title", "details", "occurred_at") if key in event}
+                            cleaned_events.append(validate_event(event_payload))
+                        except ValidationError as event_error:
+                            for field, message in event_error.errors.items():
+                                errors[f"applications.{index}.events.{event_index}.{field}"] = message
+                    cleaned_record["events"] = cleaned_events
+                    cleaned.append(cleaned_record)
                 except ValidationError as error:
                     for field, message in error.errors.items():
                         errors[f"applications.{index}.{field}"] = message

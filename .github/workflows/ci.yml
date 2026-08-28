@@ -33,5 +33,7 @@ jobs:
         run: |
           node --check static/app.js
           node --check static/demo-data.js
+          node --check static/csv.js
+          node --test tests/csv.test.mjs
       - name: Run test suite
         run: python -m unittest discover -s tests -v

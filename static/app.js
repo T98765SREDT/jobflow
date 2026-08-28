@@ -12,6 +12,9 @@ const state = {
   requestSerial: 0,
   selectedId: null,
   pendingImport: null,
+  pendingCsvImport: null,
+  pendingConfirmation: null,
+  confirmationReturnFocus: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -20,6 +23,8 @@ const form = $("#application-form");
 const applicationDialog = $("#application-dialog");
 const detailsDialog = $("#details-dialog");
 const importDialog = $("#import-dialog");
+const csvDialog = $("#csv-dialog");
+const confirmDialog = $("#confirm-dialog");
 
 async function api(path, options = {}) {
   if (window.JobFlowDemoApi) return window.JobFlowDemoApi(path, options);
@@ -193,9 +198,10 @@ function renderApplications() {
         <td data-label="Work mode"><span class="mode">${escapeHtml(application.work_mode)}</span></td>
         <td data-label="Applied"><span class="date">${escapeHtml(formatDate(application.applied_date, false))}</span></td>
         <td data-label="Next action">${dateMarkup}</td>
-        <td data-label="Actions"><button class="button button-quiet button-small" type="button" data-details="${application.id}">View</button></td>
+        <td data-label="Actions"><button class="button button-quiet button-small" type="button" data-details="${application.id}" aria-label="View ${escapeHtml(application.role)} at ${escapeHtml(application.company)}">View</button></td>
       </tr>`;
   }).join("");
+  $(".table-wrap").setAttribute("aria-busy", "false");
   $("#loading-state").hidden = true;
   $("#empty-state").hidden = state.applications.length !== 0;
   const noun = state.total === 1 ? "application" : "applications";
@@ -238,6 +244,24 @@ function renderAnalytics() {
       <span class="arrow" aria-hidden="true">→</span>
     </button>`;
   }).join("") : `<div class="panel-empty"><strong>Nothing due yet</strong><span>Add a next-action date to build your follow-up queue.</span></div>`;
+
+  const attention = data.attention || [];
+  const attentionLabels = {
+    overdue: "Overdue",
+    today: "Due today",
+    due_soon: "Due soon",
+    missing: "No next action",
+  };
+  $("#attention-summary").textContent = `${data.attention_total || 0} open item${data.attention_total === 1 ? "" : "s"}`;
+  $("#attention-list").innerHTML = attention.length ? attention.map((item) => {
+    const type = item.attention_type || "missing";
+    const date = item.next_action_date ? formatDate(item.next_action_date, false) : "Add a date";
+    return `<button class="attention-item attention-${type}" type="button" data-details="${item.id}">
+      <span class="attention-label"><strong>${escapeHtml(attentionLabels[type] || "Needs attention")}</strong><small>${escapeHtml(date)}</small></span>
+      <span class="attention-copy"><strong>${escapeHtml(item.role)}</strong><small>${escapeHtml(item.company)} · ${escapeHtml(item.status)}</small></span>
+      <span class="arrow" aria-hidden="true">→</span>
+    </button>`;
+  }).join("") : `<div class="panel-empty"><strong>Queue is clear</strong><span>Every active application has a dated next step within the next seven days.</span></div>`;
 }
 
 function queryParameters() {
@@ -258,6 +282,7 @@ function queryParameters() {
 }
 
 function setLoading() {
+  $(".table-wrap").setAttribute("aria-busy", "true");
   $("#loading-state").hidden = false;
   $("#empty-state").hidden = true;
 }
@@ -288,6 +313,7 @@ async function loadApplications() {
     return true;
   } catch (error) {
     if (serial !== state.requestSerial) return false;
+    $(".table-wrap").setAttribute("aria-busy", "false");
     $("#loading-state").hidden = true;
     showSystemError("Applications could not be refreshed.", `${error.message} Your existing data has not been changed.`);
     throw error;
@@ -358,12 +384,30 @@ function showFormErrors(error) {
 }
 
 let toastTimer;
-function showToast(message, isError = false) {
+let toastAction = null;
+function showToast(message, isError = false, options = {}) {
   const toast = $("#toast");
-  toast.textContent = message;
+  $("#toast-message").textContent = message;
+  const action = $("#toast-action");
+  toastAction = options.onAction || null;
+  action.hidden = !toastAction;
+  action.textContent = options.actionLabel || "Undo";
   toast.className = `toast visible${isError ? " error" : ""}`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.className = "toast"; }, 3600);
+  toastTimer = setTimeout(() => { toast.className = "toast"; toastAction = null; action.hidden = true; }, options.duration || (isError ? 7000 : 3600));
+}
+
+function dismissToast() {
+  clearTimeout(toastTimer);
+  toastAction = null;
+  $("#toast-action").hidden = true;
+  $("#toast").className = "toast";
+}
+
+function runToastAction() {
+  const action = toastAction;
+  dismissToast();
+  if (action) action();
 }
 
 async function submitForm(event) {
@@ -402,9 +446,46 @@ function detailItem(label, value, className = "") {
   return `<div class="detail-item ${className}"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || "—")}</dd></div>`;
 }
 
+const eventLabels = {
+  applied: "Applied",
+  status_changed: "Status change",
+  interview: "Interview",
+  follow_up: "Follow-up",
+  note: "Note",
+  offer: "Offer",
+  rejection: "Rejection",
+  custom: "Activity",
+};
+
+function renderEvents(events) {
+  if (!events.length) return `<div class="timeline-empty"><strong>No activity recorded yet</strong><span>Add an interview, follow-up, or note to keep the record auditable.</span></div>`;
+  return `<ol class="timeline">${events.map((event) => `
+    <li class="timeline-item">
+      <span class="timeline-dot" aria-hidden="true"></span>
+      <div class="timeline-copy"><div><strong>${escapeHtml(event.title)}</strong><small>${escapeHtml(eventLabels[event.event_type] || "Activity")} · ${escapeHtml(formatDateTime(event.occurred_at))}</small></div><p>${escapeHtml(event.details || "No details added.")}</p></div>
+      <button class="timeline-delete" type="button" data-delete-event="${event.id}" aria-label="Delete ${escapeHtml(event.title)}">×</button>
+    </li>`).join("")}</ol>`;
+}
+
+function renderActivitySection(events) {
+  return `<section class="activity-section" aria-labelledby="activity-title">
+    <div class="activity-heading"><div><h3 id="activity-title">Activity timeline</h3><p>Keep decisions and follow-ups attached to this application.</p></div><button class="button button-secondary button-small" type="button" id="add-activity" aria-expanded="false">Add activity</button></div>
+    <form class="activity-form" id="activity-form" hidden>
+      <label>Type<select name="event_type">${Object.entries(eventLabels).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
+      <label>Title<input name="title" maxlength="160" required placeholder="Technical interview scheduled"></label>
+      <label>Details<textarea name="details" maxlength="4000" rows="3" placeholder="What happened, and what should happen next?"></textarea></label>
+      <div class="activity-actions"><button class="button button-secondary button-small" type="button" id="cancel-activity">Cancel</button><button class="button button-primary button-small" type="submit">Save activity</button></div>
+    </form>
+    ${renderEvents(events)}
+  </section>`;
+}
+
 async function openDetails(id) {
   try {
-    const application = await findApplication(id);
+    const [application, events] = await Promise.all([
+      findApplication(id),
+      api(`/api/applications/${id}/events`),
+    ]);
     state.selectedId = id;
     $("#details-title").textContent = application.role;
     $("#details-company").textContent = `${application.company}${application.location ? ` · ${application.location}` : ""}`;
@@ -418,13 +499,43 @@ async function openDetails(id) {
         ${detailItem("Source", application.source || "Not specified")}
         ${detailItem("Last updated", formatDateTime(application.updated_at))}
       </dl>
-      <section class="detail-notes"><h3>Notes</h3><p>${escapeHtml(application.notes || "No notes have been added.")}</p></section>`;
+      <section class="detail-notes"><h3>Notes</h3><p>${escapeHtml(application.notes || "No notes have been added.")}</p></section>
+      ${renderActivitySection(events)}`;
     const jobLink = $("#open-job-link");
     jobLink.hidden = !application.url;
     jobLink.href = application.url || "#";
     detailsDialog.showModal();
   } catch (error) {
     showToast(error.message, true);
+  }
+}
+
+async function submitActivity(event) {
+  event.preventDefault();
+  if (!state.selectedId) return;
+  const form = event.currentTarget;
+  const submit = form.querySelector("[type='submit']");
+  submit.disabled = true;
+  try {
+    const values = Object.fromEntries(new FormData(form));
+    await api(`/api/applications/${state.selectedId}/events`, { method: "POST", body: JSON.stringify(values) });
+    await openDetails(state.selectedId);
+    showToast("Activity added.");
+  } catch (error) {
+    showToast(`Could not add activity: ${error.message}`, true);
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function deleteActivity(eventId) {
+  if (!state.selectedId) return;
+  try {
+    await api(`/api/applications/${state.selectedId}/events/${eventId}`, { method: "DELETE" });
+    await openDetails(state.selectedId);
+    showToast("Activity deleted.");
+  } catch (error) {
+    showToast(`Could not delete activity: ${error.message}`, true);
   }
 }
 
@@ -438,15 +549,54 @@ async function editSelected() {
   catch (error) { showToast(error.message, true); }
 }
 
-async function deleteApplication(id) {
+function askConfirmation({ title, message, confirmLabel = "Confirm", onConfirm, trigger = document.activeElement }) {
+  state.pendingConfirmation = onConfirm;
+  state.confirmationReturnFocus = trigger;
+  $("#confirm-title").textContent = title;
+  $("#confirm-message").textContent = message;
+  $("#accept-confirm").textContent = confirmLabel;
+  confirmDialog.showModal();
+  $("#cancel-confirm").focus();
+}
+
+function closeConfirmation() {
+  const returnFocus = state.confirmationReturnFocus;
+  state.pendingConfirmation = null;
+  state.confirmationReturnFocus = null;
+  if (confirmDialog.open) confirmDialog.close();
+  if (returnFocus && typeof returnFocus.focus === "function") returnFocus.focus();
+}
+
+function acceptConfirmation() {
+  const action = state.pendingConfirmation;
+  closeConfirmation();
+  if (action) action();
+}
+
+async function deleteApplication(id, trigger = document.activeElement) {
   const application = await findApplication(id).catch(() => null);
-  if (!application || !window.confirm(`Delete the ${application.role} application at ${application.company}? This cannot be undone.`)) return;
+  if (!application) return;
+  askConfirmation({
+    title: "Delete this application?",
+    message: `${application.role} at ${application.company} will be removed from this workspace. This action cannot be undone.`,
+    confirmLabel: "Delete application",
+    trigger,
+    onConfirm: () => performDeleteApplication(application),
+  });
+}
+
+async function performDeleteApplication(application) {
+  const id = application.id;
   const button = $("#delete-from-details");
   button.disabled = true;
   try {
     await api(`/api/applications/${id}`, { method: "DELETE" });
     closeDetails();
-    showToast("Application deleted.");
+    showToast("Application deleted.", false, {
+      actionLabel: "Undo",
+      duration: 8000,
+      onAction: () => restoreDeletedApplication(application),
+    });
     const lastItemOnPage = state.applications.length === 1 && state.page > 1;
     if (lastItemOnPage) state.page -= 1;
     try { await refreshWorkspace(); }
@@ -458,6 +608,19 @@ async function deleteApplication(id) {
   }
 }
 
+async function restoreDeletedApplication(application) {
+  const fields = ["company", "role", "location", "work_mode", "status", "source", "url", "salary_min", "salary_max", "salary_period", "currency", "applied_date", "next_action_date", "notes"];
+  const payload = Object.fromEntries(fields.map((field) => [field, application[field]]));
+  try {
+    await api("/api/applications", { method: "POST", body: JSON.stringify(payload) });
+    state.page = 1;
+    await refreshWorkspace();
+    showToast("Application restored.");
+  } catch (error) {
+    showToast(`Could not restore application: ${error.message}`, true);
+  }
+}
+
 function clearFilters(key = null) {
   if (!key || key === "view") state.view = "all";
   if (!key || key === "search") $("#search").value = "";
@@ -466,6 +629,28 @@ function clearFilters(key = null) {
   state.page = 1;
   renderViewTabs();
   loadApplications().catch(() => {});
+}
+
+function setActiveSection(sectionId) {
+  $$(".nav-item").forEach((link) => {
+    const active = link.getAttribute("href") === `#${sectionId}`;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+function setupSectionNavigation() {
+  const sections = ["dashboard", "applications", "insights"].map((id) => document.getElementById(id)).filter(Boolean);
+  $$(".nav-item").forEach((link) => link.addEventListener("click", () => setActiveSection(link.getAttribute("href").slice(1))));
+  if (!("IntersectionObserver" in window)) return;
+  const observer = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (visible) setActiveSection(visible.target.id);
+  }, { rootMargin: "-18% 0px -58% 0px", threshold: [0.1, 0.35, 0.7] });
+  sections.forEach((section) => observer.observe(section));
 }
 
 function downloadFile(name, content, type) {
@@ -485,6 +670,59 @@ function csvCell(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+function calendarCell(value) {
+  return String(value || "")
+    .replaceAll("\\", "\\\\")
+    .replaceAll(";", "\\;")
+    .replaceAll(",", "\\,")
+    .replaceAll(/\r?\n/g, "\\n");
+}
+
+function nextCalendarDate(value) {
+  const date = parseLocalDate(value);
+  if (!date) return "";
+  date.setDate(date.getDate() + 1);
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("");
+}
+
+function calendarDate(value) {
+  const date = parseLocalDate(value);
+  if (!date) return "";
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("");
+}
+
+function buildCalendar(applications) {
+  const events = applications
+    .filter((application) => application.next_action_date)
+    .map((application) => {
+      const description = [
+        `Status: ${application.status}`,
+        application.work_mode ? `Work mode: ${application.work_mode}` : "",
+        application.url ? `Job post: ${application.url}` : "",
+        application.notes || "",
+      ].filter(Boolean).join("\\n");
+      return [
+        "BEGIN:VEVENT",
+        `UID:jobflow-${application.id}@local`,
+        `DTSTART;VALUE=DATE:${calendarDate(application.next_action_date)}`,
+        `DTEND;VALUE=DATE:${nextCalendarDate(application.next_action_date)}`,
+        `SUMMARY:${calendarCell(`Follow up: ${application.role} at ${application.company}`)}`,
+        `DESCRIPTION:${calendarCell(description)}`,
+        "END:VEVENT",
+      ].join("\r\n");
+    });
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//JobFlow//Follow-up Calendar//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    ...events,
+    "END:VCALENDAR",
+    "",
+  ].join("\r\n");
+}
+
 async function exportWorkspace(format) {
   try {
     const backup = await api("/api/export");
@@ -492,6 +730,16 @@ async function exportWorkspace(format) {
     if (format === "json") {
       downloadFile(`jobflow-backup-${stamp}.json`, `${JSON.stringify(backup, null, 2)}\n`, "application/json");
       showToast("JSON backup downloaded.");
+      return;
+    }
+    if (format === "calendar") {
+      const dated = backup.applications.filter((application) => application.next_action_date);
+      if (!dated.length) {
+        showToast("Add a next-action date before exporting a calendar.", true);
+        return;
+      }
+      downloadFile(`jobflow-follow-ups-${stamp}.ics`, buildCalendar(dated), "text/calendar;charset=utf-8");
+      showToast(`${dated.length} follow-up${dated.length === 1 ? "" : "s"} exported to your calendar.`);
       return;
     }
     const columns = ["company", "role", "status", "work_mode", "location", "source", "url", "salary_min", "salary_max", "salary_period", "currency", "applied_date", "next_action_date", "notes", "created_at", "updated_at"];
@@ -510,9 +758,17 @@ async function prepareImport(file) {
     return;
   }
   try {
+    if (/\.csv$/i.test(file.name) || file.type === "text/csv") {
+      const parsed = window.JobFlowCsv?.parse(await file.text());
+      if (!parsed) throw new Error("CSV import is unavailable in this browser.");
+      state.pendingCsvImport = { fileName: file.name, parsed, mapping: window.JobFlowCsv.inferMapping(parsed.headers) };
+      renderCsvMapping();
+      csvDialog.showModal();
+      return;
+    }
     const payload = JSON.parse(await file.text());
     if (!payload || !Array.isArray(payload.applications)) throw new Error("Expected a JobFlow backup with an applications array.");
-    if (payload.schema_version && payload.schema_version > 2) throw new Error("This backup was created by a newer JobFlow schema.");
+    if (payload.schema_version && payload.schema_version > 3) throw new Error("This backup was created by a newer JobFlow schema.");
     state.pendingImport = payload;
     $("#import-summary").textContent = `${file.name} contains ${payload.applications.length} ${payload.applications.length === 1 ? "application" : "applications"}.`;
     importDialog.showModal();
@@ -523,11 +779,65 @@ async function prepareImport(file) {
   }
 }
 
-async function importWorkspace(event) {
-  event.preventDefault();
+function renderCsvMapping() {
+  const pending = state.pendingCsvImport;
+  if (!pending) return;
+  const { fields } = window.JobFlowCsv;
+  $("#csv-summary").textContent = `${pending.fileName} · ${pending.parsed.rows.length} data rows · choose which columns JobFlow should use.`;
+  const options = [`<option value="">Ignore this field</option>`, ...pending.parsed.headers.map((header, index) => `<option value="${index}">${escapeHtml(header)}</option>`)].join("");
+  $("#csv-map-grid").innerHTML = fields.map((field) => `
+    <label><span>${escapeHtml(field.label)}${["company", "role"].includes(field.key) ? " *" : ""}</span>
+      <select data-csv-field="${escapeHtml(field.key)}" aria-label="CSV column for ${escapeHtml(field.label)}">${options}</select>
+    </label>`).join("");
+  fields.forEach((field) => {
+    const select = $(`[data-csv-field="${field.key}"]`);
+    select.value = pending.mapping[field.key] ?? "";
+    select.addEventListener("change", () => {
+      pending.mapping[field.key] = select.value;
+      updateCsvPreview();
+    });
+  });
+  updateCsvPreview();
+}
+
+function updateCsvPreview() {
+  const pending = state.pendingCsvImport;
+  if (!pending) return;
+  const result = window.JobFlowCsv.toBackup(pending.parsed, pending.mapping);
+  const required = ["company", "role"].some((key) => pending.mapping[key] === "");
+  const issueText = result.errors.length ? ` · ${result.errors.length} row${result.errors.length === 1 ? "" : "s"} missing required fields` : "";
+  const duplicateText = result.duplicates ? ` · ${result.duplicates} duplicate row${result.duplicates === 1 ? "" : "s"} will be skipped` : "";
+  $("#csv-preview").innerHTML = `<strong>${result.records.length} row${result.records.length === 1 ? "" : "s"} ready</strong><span>${required ? "Map Company and Role before importing." : `${result.totalRows} data rows scanned${duplicateText}${issueText}. All rows will be validated before writing.`}</span>`;
+  $("#confirm-csv").disabled = required || !result.records.length || Boolean(result.errors.length);
+}
+
+async function performCsvImport() {
+  const pending = state.pendingCsvImport;
+  if (!pending) return;
+  const button = $("#confirm-csv");
+  const result = window.JobFlowCsv.toBackup(pending.parsed, pending.mapping);
+  if (!result.records.length || result.errors.length) return;
+  button.disabled = true;
+  button.textContent = "Importing…";
+  try {
+    const payload = { schema_version: 3, exported_at: new Date().toISOString(), applications: result.records };
+    const imported = await api("/api/import?mode=append", { method: "POST", body: JSON.stringify(payload) });
+    csvDialog.close();
+    state.pendingCsvImport = null;
+    state.page = 1;
+    showToast(`${imported.imported} ${imported.imported === 1 ? "application" : "applications"} imported from CSV.`);
+    try { await refreshWorkspace(); }
+    catch (_error) { showSystemError("The CSV was imported, but this view did not refresh.", "Use Try again to load the latest data."); }
+  } catch (error) {
+    showToast(`CSV import failed: ${error.message}`, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Import rows";
+  }
+}
+
+async function performImport(mode) {
   if (!state.pendingImport) return;
-  const mode = new FormData(event.currentTarget).get("import_mode") || "append";
-  if (mode === "replace" && !window.confirm("Replace every application in this workspace with the validated backup?")) return;
   const button = $("#confirm-import");
   button.disabled = true;
   button.textContent = "Importing…";
@@ -547,6 +857,23 @@ async function importWorkspace(event) {
   }
 }
 
+function importWorkspace(event) {
+  event.preventDefault();
+  if (!state.pendingImport) return;
+  const mode = new FormData(event.currentTarget).get("import_mode") || "append";
+  if (mode === "replace") {
+    askConfirmation({
+      title: "Replace this workspace?",
+      message: "Every current application will be replaced after the backup passes validation. This action cannot be undone.",
+      confirmLabel: "Replace applications",
+      trigger: $("#confirm-import"),
+      onConfirm: () => performImport(mode),
+    });
+    return;
+  }
+  performImport(mode);
+}
+
 function toggleExportMenu(force) {
   const menu = $("#export-menu");
   const trigger = $("#export-trigger");
@@ -554,6 +881,7 @@ function toggleExportMenu(force) {
   menu.hidden = !shouldOpen;
   trigger.setAttribute("aria-expanded", String(shouldOpen));
   if (shouldOpen) menu.querySelector("button")?.focus();
+  else if (document.activeElement && menu.contains(document.activeElement)) trigger.focus();
 }
 
 function bindDialogBackdrop(dialog, close) {
@@ -580,9 +908,41 @@ function bindEvents() {
     const trigger = event.target.closest("[data-details]");
     if (trigger) openDetails(Number(trigger.dataset.details));
   });
+  $("#attention-list").addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-details]");
+    if (trigger) openDetails(Number(trigger.dataset.details));
+  });
   $("#close-details").addEventListener("click", closeDetails);
   $("#edit-from-details").addEventListener("click", editSelected);
-  $("#delete-from-details").addEventListener("click", () => deleteApplication(state.selectedId));
+  $("#delete-from-details").addEventListener("click", (event) => deleteApplication(state.selectedId, event.currentTarget));
+  $("#details-content").addEventListener("click", (event) => {
+    const addButton = event.target.closest("#add-activity");
+    const cancelButton = event.target.closest("#cancel-activity");
+    const deleteButton = event.target.closest("[data-delete-event]");
+    if (addButton) {
+      const activityForm = $("#activity-form");
+      const open = activityForm.hidden;
+      activityForm.hidden = !open;
+      addButton.setAttribute("aria-expanded", String(open));
+      if (open) activityForm.elements.title.focus();
+    }
+    if (cancelButton) {
+      $("#activity-form").hidden = true;
+      $("#add-activity").setAttribute("aria-expanded", "false");
+    }
+    if (deleteButton) {
+      askConfirmation({
+        title: "Delete this activity?",
+        message: "This timeline entry will be removed from the application record.",
+        confirmLabel: "Delete activity",
+        trigger: deleteButton,
+        onConfirm: () => deleteActivity(deleteButton.dataset.deleteEvent),
+      });
+    }
+  });
+  $("#details-content").addEventListener("submit", (event) => {
+    if (event.target.id === "activity-form") submitActivity(event);
+  });
   bindDialogBackdrop(detailsDialog, closeDetails);
 
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => {
@@ -621,6 +981,22 @@ function bindEvents() {
   });
   document.addEventListener("click", (event) => { if (!event.target.closest(".menu-wrap")) toggleExportMenu(false); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("#export-menu").hidden) toggleExportMenu(false); });
+  $("#export-menu").addEventListener("keydown", (event) => {
+    const items = [...$("#export-menu").querySelectorAll("[role='menuitem']")];
+    const currentIndex = items.indexOf(document.activeElement);
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const direction = event.key === "ArrowUp" ? -1 : 1;
+    const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (currentIndex + direction + items.length) % items.length;
+    items[nextIndex]?.focus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      $("#search").focus();
+      $("#search").select();
+    }
+  });
 
   $("#import-trigger").addEventListener("click", () => $("#import-file").click());
   $("#import-file").addEventListener("change", (event) => prepareImport(event.target.files[0]));
@@ -628,14 +1004,36 @@ function bindEvents() {
   $("#close-import").addEventListener("click", () => importDialog.close());
   $("#cancel-import").addEventListener("click", () => importDialog.close());
   bindDialogBackdrop(importDialog, () => importDialog.close());
+  $("#csv-form").addEventListener("submit", (event) => { event.preventDefault(); performCsvImport(); });
+  $("#close-csv").addEventListener("click", () => csvDialog.close());
+  $("#cancel-csv").addEventListener("click", () => csvDialog.close());
+  bindDialogBackdrop(csvDialog, () => csvDialog.close());
 
-  $("#reset-demo").addEventListener("click", async () => {
-    if (!window.JobFlowDemoReset || !window.confirm("Reset this browser demo to its sample applications?")) return;
-    window.JobFlowDemoReset();
-    state.page = 1;
-    await refreshWorkspace().catch(() => {});
-    showToast("Demo workspace reset.");
+  $("#reset-demo").addEventListener("click", (event) => {
+    if (!window.JobFlowDemoReset) return;
+    askConfirmation({
+      title: "Reset the demo workspace?",
+      message: "Your browser changes will be replaced with the sample applications. This action cannot be undone.",
+      confirmLabel: "Reset demo",
+      trigger: event.currentTarget,
+      onConfirm: async () => {
+        window.JobFlowDemoReset();
+        state.page = 1;
+        await refreshWorkspace().catch(() => {});
+        showToast("Demo workspace reset.");
+      },
+    });
   });
+  $("#close-confirm").addEventListener("click", closeConfirmation);
+  $("#cancel-confirm").addEventListener("click", closeConfirmation);
+  $("#accept-confirm").addEventListener("click", acceptConfirmation);
+  $("#toast-action").addEventListener("click", runToastAction);
+  $("#toast-close").addEventListener("click", dismissToast);
+  confirmDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeConfirmation();
+  });
+  bindDialogBackdrop(confirmDialog, closeConfirmation);
   window.addEventListener("popstate", () => { readUrlState(); loadApplications().catch(() => {}); });
 }
 
@@ -646,6 +1044,7 @@ async function initialize() {
     $(".workspace-state strong").textContent = "Browser demo";
     $(".workspace-state small").textContent = "Local storage · No account needed";
   }
+  setupSectionNavigation();
   bindEvents();
   try {
     state.options = await api("/api/meta/options");
@@ -653,6 +1052,7 @@ async function initialize() {
     readUrlState();
     await refreshWorkspace();
   } catch (error) {
+    $(".table-wrap").setAttribute("aria-busy", "false");
     $("#loading-state").hidden = true;
     showSystemError("JobFlow could not start.", `${error.message} Check the local server and try again.`);
   }
