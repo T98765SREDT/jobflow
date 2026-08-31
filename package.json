@@ -1,0 +1,14 @@
+{
+  "name": "jobflow-browser-checks",
+  "private": true,
+  "description": "Test-only browser checks for the JobFlow vanilla JavaScript interface",
+  "scripts": {
+    "test:browser": "playwright test tests/e2e/jobflow.spec.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

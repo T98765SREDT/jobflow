@@ -61,6 +61,7 @@ class DatabaseTests(unittest.TestCase):
         self.database.import_applications(exported)
         restored = self.database.export_applications()
         self.assertEqual(len(restored[0]["events"]), 2)
+        self.assertTrue(all(event["origin"] == "import" for event in restored[0]["events"]))
 
     def test_search_and_filters(self):
         self.database.create_application(self.payload)
@@ -153,7 +154,41 @@ class DatabaseTests(unittest.TestCase):
         record = database.export_applications()[0]
         self.assertEqual(record["salary_period"], "Annual")
         with database.connect() as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 3)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 8)
+
+    def test_transition_writes_immutable_lifecycle_event(self):
+        from jobflow.validation import validate_transition
+
+        created = self.database.create_application(self.payload)
+        result = self.database.transition_application(
+            created["id"], validate_transition({"to_stage": "Interview", "expected_version": 1, "request_id": "db-transition-1"})
+        )
+        self.assertFalse(result["replayed"])
+        self.assertEqual(result["application"]["version"], 2)
+        self.assertEqual(result["event"]["from_stage"], "Applied")
+        self.assertEqual(result["event"]["to_stage"], "Interview")
+        self.assertEqual(result["event"]["origin"], "system")
+        replay = self.database.transition_application(
+            created["id"], validate_transition({"to_stage": "Interview", "expected_version": 1, "request_id": "db-transition-1"})
+        )
+        self.assertTrue(replay["replayed"])
+        self.assertEqual(len(self.database.list_events(created["id"])), 2)
+
+    def test_stage_and_outcome_are_migrated_from_legacy_status(self):
+        created = self.database.create_application({**self.payload, "status": "Rejected"})
+        self.assertEqual(created["stage"], "Closed")
+        self.assertEqual(created["outcome"], "Rejected")
+        self.assertIsNotNone(created["closed_at"])
+        self.assertEqual(created["version"], 1)
+
+    def test_stage_input_keeps_legacy_status_alias(self):
+        created = self.database.create_application({
+            **self.payload,
+            "status": "Applied",
+            "stage": "Interview",
+        })
+        self.assertEqual(created["stage"], "Interview")
+        self.assertEqual(created["status"], "Interview")
 
     def test_failed_replace_import_rolls_back(self):
         self.database.create_application(self.payload)

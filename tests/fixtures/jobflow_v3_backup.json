@@ -1,0 +1,201 @@
+{
+  "schema_version": 3,
+  "exported_at": "2026-08-29T00:00:00+00:00",
+  "applications": [
+    {
+      "id": 1,
+      "company": "Acme Labs",
+      "role": "Python Developer",
+      "location": "Worldwide",
+      "work_mode": "Remote",
+      "status": "Applied",
+      "source": "CSV import",
+      "url": "https://jobs.example.com/acme-python",
+      "salary_min": 35,
+      "salary_max": 50,
+      "salary_period": "Hourly",
+      "currency": "USD",
+      "applied_date": "2026-08-20",
+      "next_action_date": "2026-08-28",
+      "notes": "Imported from the example CSV.",
+      "created_at": "2026-08-20T09:00:00+00:00",
+      "updated_at": "2026-08-20T09:00:00+00:00",
+      "events": [
+        {
+          "id": 1,
+          "application_id": 1,
+          "event_type": "applied",
+          "title": "Application submitted",
+          "details": "Submitted through the company application form.",
+          "occurred_at": "2026-08-20T09:00:00+00:00",
+          "created_at": "2026-08-20T09:00:00+00:00"
+        },
+        {
+          "id": 2,
+          "application_id": 1,
+          "event_type": "custom",
+          "title": "Imported from example CSV",
+          "details": "Original row retained for traceability.",
+          "occurred_at": "2026-08-20T09:00:00+00:00",
+          "created_at": "2026-08-20T09:01:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "company": "星河科技",
+      "role": "AI 评测工程师",
+      "location": "日本",
+      "work_mode": "Remote",
+      "status": "Wishlist",
+      "source": "Company site",
+      "url": "https://jobs.example.com/xinghe",
+      "salary_min": null,
+      "salary_max": null,
+      "salary_period": "Annual",
+      "currency": "CNY",
+      "applied_date": null,
+      "next_action_date": "2026-09-01",
+      "notes": "中文备注：等待合适的合同工项目。",
+      "created_at": "2026-08-21T10:30:00+00:00",
+      "updated_at": "2026-08-21T10:30:00+00:00",
+      "events": [
+        {
+          "id": 3,
+          "application_id": 2,
+          "event_type": "custom",
+          "title": "Saved for later",
+          "details": "Keep this role in the shortlist until the next review.",
+          "occurred_at": "2026-08-21T10:30:00+00:00",
+          "created_at": "2026-08-21T10:30:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "company": "東京 Labs",
+      "role": "Frontend Engineer",
+      "location": "Tokyo, Japan",
+      "work_mode": "Hybrid",
+      "status": "Interview",
+      "source": "Referral",
+      "url": "https://jobs.example.com/tokyo-frontend",
+      "salary_min": 5000000,
+      "salary_max": 6500000,
+      "salary_period": "Annual",
+      "currency": "JPY",
+      "applied_date": "2026-08-10",
+      "next_action_date": "2026-08-27",
+      "notes": "Prepare a concise demo for the panel.",
+      "created_at": "2026-08-10T08:00:00+00:00",
+      "updated_at": "2026-08-25T10:00:00+00:00",
+      "events": [
+        {
+          "id": 4,
+          "application_id": 3,
+          "event_type": "applied",
+          "title": "Application submitted",
+          "details": "Referred by a former classmate.",
+          "occurred_at": "2026-08-10T08:00:00+00:00",
+          "created_at": "2026-08-10T08:00:00+00:00"
+        },
+        {
+          "id": 5,
+          "application_id": 3,
+          "event_type": "interview",
+          "title": "Interview scheduled",
+          "details": "Remote panel: 30 minutes.",
+          "occurred_at": "2026-08-25T10:00:00+00:00",
+          "created_at": "2026-08-24T09:00:00+00:00"
+        },
+        {
+          "id": 6,
+          "application_id": 3,
+          "event_type": "interview",
+          "title": "Interview notes",
+          "details": "同じ時刻のイベントで順序を固定します。",
+          "occurred_at": "2026-08-25T10:00:00+00:00",
+          "created_at": "2026-08-25T11:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "company": "Orbit Systems",
+      "role": "Backend Engineer",
+      "location": "Singapore",
+      "work_mode": "Remote",
+      "status": "Offer",
+      "source": "Remote board",
+      "url": "https://jobs.example.com/orbit-backend",
+      "salary_min": 30,
+      "salary_max": 42,
+      "salary_period": "Hourly",
+      "currency": "USD",
+      "applied_date": "2026-08-01",
+      "next_action_date": "2026-08-30",
+      "notes": "Review the contract and confirm availability.",
+      "created_at": "2026-08-01T11:00:00+00:00",
+      "updated_at": "2026-08-26T12:00:00+00:00",
+      "events": [
+        {
+          "id": 7,
+          "application_id": 4,
+          "event_type": "applied",
+          "title": "Application submitted",
+          "details": "Applied through a remote-work board.",
+          "occurred_at": "2026-08-01T11:00:00+00:00",
+          "created_at": "2026-08-01T11:00:00+00:00"
+        },
+        {
+          "id": 8,
+          "application_id": 4,
+          "event_type": "offer",
+          "title": "Offer received",
+          "details": "Review compensation, scope, and start date.",
+          "occurred_at": "2026-08-26T12:00:00+00:00",
+          "created_at": "2026-08-26T12:00:00+00:00"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "company": "Nocturne Data",
+      "role": "QA Tester",
+      "location": "Remote",
+      "work_mode": "Remote",
+      "status": "Rejected",
+      "source": "LinkedIn",
+      "url": "https://jobs.example.com/nocturne-qa",
+      "salary_min": 20,
+      "salary_max": 28,
+      "salary_period": "Hourly",
+      "currency": "USD",
+      "applied_date": "2026-07-15",
+      "next_action_date": null,
+      "notes": "",
+      "created_at": "2026-07-15T07:00:00+00:00",
+      "updated_at": "2026-07-22T07:00:00+00:00",
+      "events": [
+        {
+          "id": 9,
+          "application_id": 5,
+          "event_type": "applied",
+          "title": "Application submitted",
+          "details": "Submitted a short QA portfolio.",
+          "occurred_at": "2026-07-15T07:00:00+00:00",
+          "created_at": "2026-07-15T07:00:00+00:00"
+        },
+        {
+          "id": 10,
+          "application_id": 5,
+          "event_type": "rejection",
+          "title": "Not selected",
+          "details": "Keep the feedback for future applications.",
+          "occurred_at": "2026-07-22T07:00:00+00:00",
+          "created_at": "2026-07-22T07:00:00+00:00"
+        }
+      ]
+    }
+  ]
+}

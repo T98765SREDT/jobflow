@@ -104,8 +104,72 @@
     return Number.isFinite(number) ? number : cleaned;
   }
 
+  const trackingQueryParameters = new Set([
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "gclid", "dclid", "fbclid", "msclkid", "mc_cid", "mc_eid", "_hsenc", "_hsmi",
+  ]);
+
+  function canonicalUrl(value) {
+    const text = String(value ?? "").trim();
+    if (!text) return "";
+    try {
+      const parsed = new URL(text);
+      if (!["http:", "https:"].includes(parsed.protocol) || !parsed.hostname) return "";
+      parsed.hash = "";
+      parsed.username = "";
+      parsed.password = "";
+      parsed.pathname = (parsed.pathname || "/").replace(/\/{2,}/g, "/");
+      if (parsed.pathname !== "/") parsed.pathname = parsed.pathname.replace(/\/+$/, "");
+      const kept = [...parsed.searchParams]
+        .filter(([key]) => !trackingQueryParameters.has(key.toLowerCase()))
+        .sort(([leftKey, leftValue], [rightKey, rightValue]) => {
+          const left = `${leftKey}\u0000${leftValue}`;
+          const right = `${rightKey}\u0000${rightValue}`;
+          return left < right ? -1 : left > right ? 1 : 0;
+        });
+      parsed.search = new URLSearchParams(kept).toString();
+      return parsed.toString();
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  function normalizeIdentityText(value) {
+    return String(value ?? "").normalize("NFKC").trim().toLocaleLowerCase().split(/\s+/u).filter(Boolean).join(" ");
+  }
+
+  function applicationFingerprint(record) {
+    const url = canonicalUrl(record?.url);
+    return url
+      ? `url:${url}`
+      : `details:${["company", "role", "location"].map((field) => normalizeIdentityText(record?.[field])).join("\u001f")}`;
+  }
+
+  function duplicateReason(incoming, existing) {
+    const incomingUrl = canonicalUrl(incoming?.url);
+    const existingUrl = canonicalUrl(existing?.url);
+    if (incomingUrl && existingUrl && incomingUrl === existingUrl) return "canonical_url";
+    if (!incomingUrl && !existingUrl && applicationFingerprint(incoming) === applicationFingerprint(existing)) return "company_role_location";
+    return null;
+  }
+
+  function findDuplicateMatches(incoming, existing) {
+    const matches = [];
+    incoming.forEach((record, incomingIndex) => {
+      const match = existing.find((candidate) => duplicateReason(record, candidate));
+      if (match) matches.push({
+        incoming_index: incomingIndex,
+        existing_application_id: match.id,
+        reason: duplicateReason(record, match),
+        fingerprint: applicationFingerprint(record),
+      });
+    });
+    return matches;
+  }
+
   function toBackup(parsed, mapping) {
     const records = [];
+    const allRecords = [];
     const errors = [];
     const seen = new Set();
     let duplicates = 0;
@@ -132,7 +196,8 @@
         next_action_date: valueFor(row, mapping, "next_action_date") || null,
         notes: valueFor(row, mapping, "notes"),
       };
-      const signature = [record.company, record.role, record.url].map((part) => part.toLowerCase().replace(/\s+/g, " ")).join("\u001f");
+      allRecords.push(record);
+      const signature = applicationFingerprint(record);
       if (seen.has(signature)) {
         duplicates += 1;
         return;
@@ -140,8 +205,8 @@
       seen.add(signature);
       records.push(record);
     });
-    return { records, errors, duplicates, totalRows: parsed.rows.length };
+    return { records, allRecords, errors, duplicates, totalRows: parsed.rows.length };
   }
 
-  root.JobFlowCsv = { fields, parse, inferMapping, normalizeHeader, toBackup };
+  root.JobFlowCsv = { fields, parse, inferMapping, normalizeHeader, canonicalUrl, applicationFingerprint, duplicateReason, findDuplicateMatches, toBackup };
 })();

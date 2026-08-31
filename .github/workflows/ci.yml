@@ -34,6 +34,52 @@ jobs:
           node --check static/app.js
           node --check static/demo-data.js
           node --check static/csv.js
-          node --test tests/csv.test.mjs
+          node --test tests/*.test.mjs
       - name: Run test suite
         run: python -m unittest discover -s tests -v
+      - name: Run small benchmark smoke check
+        if: matrix.python-version == '3.12'
+        run: python scripts/benchmark.py --applications 100 --events-per-application 2 --tasks-per-application 1 --iterations 2 --json
+
+  browser:
+    name: Browser E2E (${{ matrix.browser }})
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install browser test dependency
+        run: npm ci --no-audit --no-fund
+      - name: Install ${{ matrix.browser }}
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Start JobFlow
+        run: |
+          python app.py --host 127.0.0.1 --port 8765 --db "$RUNNER_TEMP/jobflow-e2e.db" > "$RUNNER_TEMP/jobflow-e2e.log" 2>&1 &
+          server_pid=$!
+          server_ready=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8765/api/health > /dev/null; then
+              server_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [[ "$server_ready" != true ]]; then
+            cat "$RUNNER_TEMP/jobflow-e2e.log"
+            kill "$server_pid" 2>/dev/null || true
+            exit 1
+          fi
+      - name: Run browser workflow checks
+        env:
+          JOBFLOW_BROWSER: ${{ matrix.browser }}
+        run: npx playwright test tests/e2e/jobflow.spec.mjs
