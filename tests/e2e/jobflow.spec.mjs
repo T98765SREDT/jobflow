@@ -19,6 +19,9 @@ async function addApplication(page, company, role) {
   await page.getByRole("button", { name: "Add application" }).click();
   const form = page.locator("#application-form");
   await expect(form).toBeVisible();
+  // Wait for the dialog's requestAnimationFrame focus hand-off before filling
+  // fields, otherwise a slow browser can move focus during the first fill.
+  await expect(form.locator('input[name="company"]')).toBeFocused();
   await expect(form.locator('select[name="status"] option')).not.toHaveCount(0);
   await form.locator('input[name="company"]').fill(company);
   await form.locator('input[name="role"]').fill(role);
@@ -44,11 +47,13 @@ async function moveTo(page, stage) {
     await expect(page.locator("#transition-outcome-label")).toBeVisible();
     await page.locator("#transition-outcome").selectOption("Rejected");
   }
-  const transitionResponse = page.waitForResponse((response) => (
-    response.request().method() === "POST" && response.url().includes("/transitions")
-  ));
-  await page.getByRole("button", { name: "Save stage" }).click();
-  const response = await transitionResponse;
+  await expect(stageSelect).toHaveValue(stage);
+  const [response] = await Promise.all([
+    page.waitForResponse((candidate) => (
+      candidate.request().method() === "POST" && candidate.url().includes("/transitions")
+    )),
+    page.getByRole("button", { name: "Save stage" }).click(),
+  ]);
   expect(response.ok()).toBeTruthy();
   const payload = await response.json();
   expect(payload.application.stage).toBe(stage);
@@ -120,6 +125,7 @@ test("drafts survive a failed write and the keyboard shortcut focuses search", a
 
   await page.getByRole("button", { name: "Add application" }).click();
   const form = page.locator("#application-form");
+  await expect(form.locator('input[name="company"]')).toBeFocused();
   const company = unique("Offline Draft Co");
   await form.locator('input[name="company"]').fill(company);
   await form.locator('input[name="role"]').fill("Recovery Test Engineer");

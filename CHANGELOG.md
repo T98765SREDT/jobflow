@@ -4,6 +4,10 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.7] - 2026-09-09
+
+- Stabilized browser workflow synchronization around dialog focus hand-off and stage-transition response capture across Chromium, Firefox, and WebKit.
+
 ## [1.2.6] - 2026-09-09
 
 - Preserved new-record drafts when the form is closed after a failed write, so a user can reopen the form and recover the exact input.
