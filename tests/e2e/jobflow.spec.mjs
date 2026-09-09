@@ -53,7 +53,7 @@ test("primary workflow records requirements, tasks, materials and history", asyn
   const company = unique("Browser Proof Co");
   const role = "Python QA Engineer";
   const row = await addApplication(page, company, role);
-  await row.getByRole("button", { name: new RegExp(`View ${role}`) }).click();
+  await row.getByRole("button", { name: new RegExp(`View ${role}`) }).first().click();
   await expect(page.locator("#details-dialog")).toBeVisible();
 
   await moveTo(page, "Ready");

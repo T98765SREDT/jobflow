@@ -72,5 +72,9 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$PAGE_URL"
-          curl --fail --silent --show-error --location --max-time 20 "$PAGE_URL" | grep -q "JobFlow"
-          curl --fail --silent --show-error --location --max-time 20 "${PAGE_URL%/}/app.js" | grep -q "renderInsights"
+          page_file="$RUNNER_TEMP/jobflow-page.html"
+          asset_file="$RUNNER_TEMP/jobflow-app.js"
+          curl --fail --silent --show-error --location --max-time 20 "$PAGE_URL" --output "$page_file"
+          grep -q "JobFlow" "$page_file"
+          curl --fail --silent --show-error --location --max-time 20 "${PAGE_URL%/}/app.js" --output "$asset_file"
+          grep -q "renderInsights" "$asset_file"

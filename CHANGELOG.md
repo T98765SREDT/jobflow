@@ -4,6 +4,11 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.1] - 2026-09-09
+
+- Fixed the primary Playwright workflow to target the unique details button when a row also contains a same-named role link.
+- Hardened the Pages smoke check by downloading assets before content assertions, avoiding `pipefail`/`grep -q` false negatives.
+
 ## [1.2.0] - 2026-09-09
 
 - Added first-run guidance with separate add, import, and workflow-help actions for an empty local workspace.
