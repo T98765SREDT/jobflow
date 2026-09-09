@@ -4,6 +4,10 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.3] - 2026-09-09
+
+- Fixed consecutive lifecycle transitions in the details drawer by reading a fresh application version before each transition, preventing stale-list `409` conflicts.
+
 ## [1.2.2] - 2026-09-09
 
 - Made the primary browser workflow wait for and verify each transition response before asserting the refreshed stage.

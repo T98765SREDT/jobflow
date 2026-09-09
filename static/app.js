@@ -1315,7 +1315,8 @@ async function submitTransition() {
   const button = $("#submit-transition");
   const stage = $("#transition-stage");
   if (!button || !stage) return;
-  const current = await findApplication(state.selectedId);
+  // Transitions must use a fresh version, not the potentially stale list snapshot.
+  const current = await api(`/api/applications/${state.selectedId}`);
   if (stage.value === current.stage) {
     showToast("Choose a different stage.", true);
     return;
