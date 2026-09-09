@@ -64,7 +64,7 @@ jobs:
         run: npx playwright install --with-deps ${{ matrix.browser }}
       - name: Start JobFlow
         run: |
-          python app.py --host 127.0.0.1 --port 8765 --db "$RUNNER_TEMP/jobflow-e2e.db" > "$RUNNER_TEMP/jobflow-e2e.log" 2>&1 &
+          python -u app.py --host 127.0.0.1 --port 8765 --db "$RUNNER_TEMP/jobflow-e2e.db" > "$RUNNER_TEMP/jobflow-e2e.log" 2>&1 &
           server_pid=$!
           server_ready=false
           for attempt in $(seq 1 30); do

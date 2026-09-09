@@ -7,6 +7,14 @@ const unique = (label) => `${label} ${Date.now()}-${Math.random().toString(16).s
 test.use({ baseURL, browserName });
 test.describe.configure({ mode: "serial" });
 
+test.beforeEach(async ({ page }) => {
+  page.on("pageerror", (error) => console.log(`[pageerror] ${error.stack || error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error" || message.type() === "warning") console.log(`[console:${message.type()}] ${message.text()}`);
+  });
+  page.on("requestfailed", (request) => console.log(`[requestfailed] ${request.method()} ${request.url()} :: ${request.failure()?.errorText || "unknown"}`));
+});
+
 async function openWorkspace(page) {
   await page.goto("/");
   // A fresh E2E database is intentionally empty, so an empty <tbody> has no
