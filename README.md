@@ -7,9 +7,9 @@
 
 JobFlow is a local-first job application tracker built with Python, SQLite, and vanilla JavaScript. It keeps applications, lifecycle stages and outcomes, follow-up dates, notes, role requirements, application materials, submission snapshots, saved views, and pipeline metrics in one workspace. The complete local app starts with one Python command and requires no package installation.
 
-[Dashboard screenshot](docs/jobflow-dashboard.png) · [Browser demo source](static/index.html) · [Run locally](#run-the-complete-local-app) · [HTTP API](#http-api) · [Browser evidence](docs/e2e.md) · [Benchmark](docs/benchmark.md) · [Architecture](ARCHITECTURE.md) · [Security](SECURITY.md)
+[Open the live browser demo](https://t98765sredt.github.io/jobflow/?demo=1) · [Dashboard screenshot](docs/jobflow-dashboard.png) · [Browser demo source](static/index.html) · [Run locally](#run-the-complete-local-app) · [HTTP API](#http-api) · [Browser evidence](docs/e2e.md) · [Benchmark](docs/benchmark.md) · [Architecture](ARCHITECTURE.md) · [Security](SECURITY.md)
 
-> **The Pages build and local app are different runtimes.** When GitHub Pages is enabled, it runs the browser interface with resettable synthetic data stored in `localStorage`; it cannot run the Python API or SQLite. Clone the repository to use the complete browser → API → validation → database path.
+> **The Pages build and local app are different runtimes.** The live GitHub Pages demo runs the browser interface with resettable synthetic data stored in `localStorage`; it cannot run the Python API or SQLite. Clone the repository to use the complete browser → API → validation → database path.
 
 ![JobFlow seeded dashboard with synthetic data](docs/jobflow-dashboard.png)
 
@@ -41,7 +41,7 @@ JobFlow is a local-first job application tracker built with Python, SQLite, and 
 
 ## Browser demo
 
-The static demo in [`static/`](static/) is ready to publish with GitHub Pages. It supports CRUD operations, search, saved views, filters, sorting, pagination, a Today action center, current pipeline analytics, historical funnel/source insights, application requirements/evidence, material version metadata, immutable submission snapshots, JSON backup/restore, CSV import/export, and calendar export without a server. A ready-to-try mapping fixture is included at [`examples/applications.csv`](examples/applications.csv). Until the Pages deployment is enabled, use the dashboard screenshot above or run the complete app locally.
+The static demo in [`static/`](static/) is published at the [live JobFlow demo](https://t98765sredt.github.io/jobflow/?demo=1). It supports CRUD operations, search, saved views, filters, sorting, pagination, a Today action center, current pipeline analytics, historical funnel/source insights, application requirements/evidence, material version metadata, immutable submission snapshots, JSON backup/restore, CSV import/export, and calendar export without a server. A ready-to-try mapping fixture is included at [`examples/applications.csv`](examples/applications.csv). Use the complete local app when you need the Python API and SQLite-backed workflow.
 
 The demo contains fictional applications only. Changes remain in the current browser until you use **Reset demo** or clear the site's local storage.
 
