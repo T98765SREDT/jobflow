@@ -4,6 +4,10 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.2] - 2026-09-09
+
+- Made the primary browser workflow wait for and verify each transition response before asserting the refreshed stage.
+
 ## [1.2.1] - 2026-09-09
 
 - Fixed the primary Playwright workflow to target the unique details button when a row also contains a same-named role link.

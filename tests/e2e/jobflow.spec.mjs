@@ -44,7 +44,14 @@ async function moveTo(page, stage) {
     await expect(page.locator("#transition-outcome-label")).toBeVisible();
     await page.locator("#transition-outcome").selectOption("Rejected");
   }
+  const transitionResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST" && response.url().includes("/transitions")
+  ));
   await page.getByRole("button", { name: "Save stage" }).click();
+  const response = await transitionResponse;
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json();
+  expect(payload.application.stage).toBe(stage);
   await expect(page.locator("#transition-stage")).toHaveValue(stage);
 }
 
