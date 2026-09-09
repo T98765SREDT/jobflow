@@ -42,6 +42,8 @@ async function addApplication(page, company, role) {
 
 async function moveTo(page, stage) {
   const stageSelect = page.locator("#transition-stage");
+  const previousStage = await stageSelect.inputValue();
+  expect(previousStage).not.toBe(stage);
   await stageSelect.selectOption(stage);
   if (stage === "Closed") {
     await expect(page.locator("#transition-outcome-label")).toBeVisible();

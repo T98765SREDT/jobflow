@@ -4,6 +4,10 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.8] - 2026-09-09
+
+- Added an explicit pre-transition stage assertion and failure-time server-log diagnostics to make the cross-browser workflow contract easier to verify in CI.
+
 ## [1.2.7] - 2026-09-09
 
 - Stabilized browser workflow synchronization around dialog focus hand-off and stage-transition response capture across Chromium, Firefox, and WebKit.

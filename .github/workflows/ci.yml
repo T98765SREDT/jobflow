@@ -83,3 +83,6 @@ jobs:
         env:
           JOBFLOW_BROWSER: ${{ matrix.browser }}
         run: npx playwright test tests/e2e/jobflow.spec.mjs
+      - name: Show server log when browser checks fail
+        if: failure()
+        run: cat "$RUNNER_TEMP/jobflow-e2e.log"
