@@ -71,7 +71,13 @@ test("primary workflow records requirements, tasks, materials and history", asyn
   await requirementForm.locator('input[name="criterion"]').fill("Python API testing");
   await requirementForm.locator('select[name="assessment"]').selectOption("met");
   await requirementForm.locator('textarea[name="evidence"]').fill("QA Sentinel project and automated API checks.");
+  const requirementResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST" && response.url().includes("/requirements")
+  ));
   await requirementForm.locator('button[type="submit"]').click();
+  const savedRequirement = await requirementResponse;
+  const requirementBody = await savedRequirement.text();
+  expect(savedRequirement.ok(), `Requirement request failed (${savedRequirement.status()}): ${requirementBody}`).toBeTruthy();
   await expect(page.locator(".requirement-row")).toContainText("Python API testing");
 
   await page.locator('[data-workspace-tab="tasks"]').click();
@@ -79,9 +85,10 @@ test("primary workflow records requirements, tasks, materials and history", asyn
   await taskForm.locator('input[name="title"]').fill("Prepare API test examples");
   await taskForm.locator('input[name="due_date"]').fill("2099-01-16");
   await taskForm.locator('button[type="submit"]').click();
-  await expect(page.locator(".task-row")).toContainText("Prepare API test examples");
-  await page.locator(".task-row").getByRole("button", { name: "Complete" }).click();
-  await expect(page.locator(".task-completed")).toContainText("Prepare API test examples");
+  const browserTask = page.locator(".task-row").filter({ hasText: "Prepare API test examples" });
+  await expect(browserTask).toBeVisible();
+  await browserTask.getByRole("button", { name: "Complete" }).click();
+  await expect(page.locator(".task-completed").filter({ hasText: "Prepare API test examples" })).toContainText("Prepare API test examples");
 
   await moveTo(page, "Interview");
 

@@ -56,6 +56,11 @@ function waitForRetry(delay) {
   return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
+function formFromSubmitEvent(event) {
+  const target = event.target;
+  return target?.tagName === "FORM" ? target : target?.closest?.("form");
+}
+
 function createApiError(data, status, fallback = "The request could not be completed.") {
   const info = data && typeof data.error === "object" && data.error !== null ? data.error : data || {};
   const message = typeof info.message === "string" ? info.message : (typeof data?.error === "string" ? data.error : fallback);
@@ -681,7 +686,8 @@ async function completeWorkspaceTask(taskId, version, button) {
 async function submitTask(event) {
   event.preventDefault();
   if (!state.selectedId) return;
-  const taskForm = event.currentTarget;
+  const taskForm = formFromSubmitEvent(event);
+  if (!taskForm) return;
   const button = taskForm.querySelector("[type='submit']");
   button.disabled = true;
   button.textContent = "Adding…";
@@ -1074,7 +1080,8 @@ function startArtifactVersion(artifactId) {
 async function submitArtifact(event) {
   event.preventDefault();
   if (!state.selectedId) return;
-  const artifactForm = event.currentTarget;
+  const artifactForm = formFromSubmitEvent(event);
+  if (!artifactForm) return;
   const button = artifactForm.querySelector("[type='submit']");
   const values = Object.fromEntries(new FormData(artifactForm));
   const id = values.id;
@@ -1118,7 +1125,8 @@ async function deleteArtifact(artifactId) {
 async function submitSubmission(event) {
   event.preventDefault();
   if (!state.selectedId) return;
-  const submissionForm = event.currentTarget;
+  const submissionForm = formFromSubmitEvent(event);
+  if (!submissionForm) return;
   const button = submissionForm.querySelector("[type='submit']");
   const artifactIds = [...submissionForm.querySelectorAll("input[name='artifact_id']:checked")].map((input) => Number(input.value));
   button.disabled = true;
@@ -1199,7 +1207,8 @@ function startRequirementEdit(requirementId) {
 async function submitRequirement(event) {
   event.preventDefault();
   if (!state.selectedId) return;
-  const requirementForm = event.currentTarget;
+  const requirementForm = formFromSubmitEvent(event);
+  if (!requirementForm) return;
   const button = requirementForm.querySelector("[type='submit']");
   button.disabled = true;
   button.textContent = "Saving…";
@@ -1380,7 +1389,8 @@ async function openDetails(id, { updateHistory = true } = {}) {
 async function submitActivity(event) {
   event.preventDefault();
   if (!state.selectedId) return;
-  const form = event.currentTarget;
+  const form = formFromSubmitEvent(event);
+  if (!form) return;
   const submit = form.querySelector("[type='submit']");
   submit.disabled = true;
   try {
@@ -1959,15 +1969,17 @@ function bindEvents() {
   $("#first-add-application").addEventListener("click", () => openForm());
   $("#first-import").addEventListener("click", () => $("#import-file").click());
   $("#learn-workflow").addEventListener("click", () => { $("#workflow-guide").open = true; });
-  $("#close-dialog").addEventListener("click", closeForm);
-  $("#cancel-dialog").addEventListener("click", closeForm);
+  // Closing a new-record form keeps a failed-write draft available for the
+  // next Add application action; a successful save clears it before closing.
+  $("#close-dialog").addEventListener("click", () => closeForm(false));
+  $("#cancel-dialog").addEventListener("click", () => closeForm(false));
   form.addEventListener("submit", submitForm);
   form.addEventListener("input", (event) => {
     event.target.removeAttribute?.("aria-invalid");
     persistDraft();
   });
   form.addEventListener("change", () => persistDraft());
-  bindDialogBackdrop(applicationDialog, closeForm);
+  bindDialogBackdrop(applicationDialog, () => closeForm(false));
 
   $("#applications-body").addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-details]");
@@ -2135,11 +2147,14 @@ function bindEvents() {
     if (event.target.id === "transition-stage") updateTransitionOutcomeVisibility();
   });
   $("#details-content").addEventListener("submit", (event) => {
-    if (event.target.id === "activity-form") submitActivity(event);
-    if (event.target.id === "task-form") submitTask(event);
-    if (event.target.id === "artifact-form") submitArtifact(event);
-    if (event.target.id === "submission-form") submitSubmission(event);
-    if (event.target.id === "requirement-form") submitRequirement(event);
+    // Form controls named "id" can shadow HTMLFormElement.id, so read the
+    // attribute explicitly before routing delegated submissions.
+    const formId = event.target.getAttribute("id");
+    if (formId === "activity-form") submitActivity(event);
+    if (formId === "task-form") submitTask(event);
+    if (formId === "artifact-form") submitArtifact(event);
+    if (formId === "submission-form") submitSubmission(event);
+    if (formId === "requirement-form") submitRequirement(event);
   });
   bindDialogBackdrop(detailsDialog, closeDetails);
 

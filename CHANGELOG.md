@@ -4,6 +4,19 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.6] - 2026-09-09
+
+- Preserved new-record drafts when the form is closed after a failed write, so a user can reopen the form and recover the exact input.
+- Routed delegated workspace forms through the submitted form element, including forms with a hidden `name="id"` field.
+
+## [1.2.5] - 2026-09-09
+
+- Fixed delegated workspace forms to read the submitted form rather than the containing details panel, restoring API-backed task, material, submission, requirement, and activity saves.
+
+## [1.2.4] - 2026-09-09
+
+- Fixed delegated workspace-form submissions when a hidden `name="id"` control shadows the form's `id` property, preventing native navigation and preserving API-driven saves.
+
 ## [1.2.3] - 2026-09-09
 
 - Fixed consecutive lifecycle transitions in the details drawer by reading a fresh application version before each transition, preventing stale-list `409` conflicts.
