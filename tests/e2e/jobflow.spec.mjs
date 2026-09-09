@@ -25,7 +25,7 @@ async function addApplication(page, company, role) {
   await form.locator('select[name="status"]').selectOption("Wishlist");
   await form.locator('input[name="next_action_date"]').fill("2099-01-15");
   await form.locator("#more-details").evaluate((details) => { details.open = true; });
-  await form.locator('select[name="work_mode"] option').first().waitFor();
+  await expect(form.locator('select[name="work_mode"]')).toBeVisible();
   await form.locator('select[name="work_mode"]').selectOption("Remote");
   await form.locator('input[name="location"]').fill("Worldwide");
   await form.locator('input[name="source"]').fill("E2E browser check");
