@@ -9,7 +9,9 @@ test.describe.configure({ mode: "serial" });
 
 async function openWorkspace(page) {
   await page.goto("/");
-  await expect(page.locator("#applications-body")).toBeVisible();
+  // A fresh E2E database is intentionally empty, so an empty <tbody> has no
+  // layout box and is not a reliable visibility target.
+  await expect(page.locator(".table-wrap")).toBeVisible();
   await expect(page.locator("#loading-state")).toBeHidden();
 }
 
