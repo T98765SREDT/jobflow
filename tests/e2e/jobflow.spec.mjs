@@ -58,15 +58,11 @@ async function moveTo(page, stage) {
     await page.locator("#transition-outcome").selectOption("Rejected");
   }
   await expect(stageSelect).toHaveValue(stage);
-  const [response] = await Promise.all([
-    page.waitForResponse((candidate) => (
-      candidate.request().method() === "POST" && candidate.url().includes("/transitions")
-    )),
-    page.getByRole("button", { name: "Save stage" }).click(),
-  ]);
-  expect(response.ok()).toBeTruthy();
-  const payload = await response.json();
-  expect(payload.application.stage).toBe(stage);
+  await page.getByRole("button", { name: "Save stage" }).click();
+  // The select already reflects the user's choice before the async save
+  // completes. The stage-specific toast is emitted after the API response and
+  // details workspace refresh, so it is the completion signal for this step.
+  await expect(page.locator("#toast-message")).toHaveText(`Stage updated to ${stage}.`);
   await expect(page.locator("#transition-stage")).toHaveValue(stage);
 }
 

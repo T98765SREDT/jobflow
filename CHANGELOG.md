@@ -4,6 +4,10 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.11] - 2026-09-09
+
+- Added a stage-specific completion message after lifecycle refreshes so users and browser checks can distinguish a saved transition from a pending selection.
+
 ## [1.2.10] - 2026-09-09
 
 - Added browser-console, failed-request, and unbuffered server diagnostics so cross-browser workflow failures retain actionable evidence in CI.

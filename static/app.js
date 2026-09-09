@@ -411,7 +411,8 @@ function renderAnalytics() {
   $("#stage-chart").innerHTML = state.options.statuses.map((status) => {
     const count = data.by_status[status] || 0;
     const percent = Math.round((count / max) * 100);
-    return `<div class="stage-row"><span>${escapeHtml(status)}</span><div class="bar-track" role="img" aria-label="${escapeHtml(status)}: ${count}"><div class="bar-fill status-bar-${statusClass(status)}" style="width:${percent}%"></div></div><strong>${count}</strong></div>`;
+    const width = Math.min(100, Math.max(0, Math.round(percent / 5) * 5));
+    return `<div class="stage-row"><span>${escapeHtml(status)}</span><div class="bar-track" role="img" aria-label="${escapeHtml(status)}: ${count}"><div class="bar-fill bar-width-${width} status-bar-${statusClass(status)}"></div></div><strong>${count}</strong></div>`;
   }).join("");
 
   $("#upcoming-list").innerHTML = data.upcoming.length ? data.upcoming.map((item) => {
@@ -1339,7 +1340,7 @@ async function submitTransition() {
   try {
     const result = await api(`/api/applications/${state.selectedId}/transitions`, { method: "POST", body: JSON.stringify(payload) });
     await openDetails(state.selectedId);
-    showToast(result.replayed ? "Stage update already recorded." : "Stage updated.");
+    showToast(result.replayed ? "Stage update already recorded." : `Stage updated to ${stage.value}.`);
   } catch (error) {
     if (error.status === 409 && error.code === "VERSION_CONFLICT") {
       const conflict = $("#transition-conflict");
