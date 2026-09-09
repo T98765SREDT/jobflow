@@ -4,6 +4,10 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.9] - 2026-09-09
+
+- Reused the details workspace snapshot for lifecycle transitions, avoiding a redundant background read while retaining API-enforced optimistic concurrency checks.
+
 ## [1.2.8] - 2026-09-09
 
 - Added an explicit pre-transition stage assertion and failure-time server-log diagnostics to make the cross-browser workflow contract easier to verify in CI.

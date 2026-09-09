@@ -1324,8 +1324,10 @@ async function submitTransition() {
   const button = $("#submit-transition");
   const stage = $("#transition-stage");
   if (!button || !stage) return;
-  // Transitions must use a fresh version, not the potentially stale list snapshot.
-  const current = await api(`/api/applications/${state.selectedId}`);
+  // The details workspace is a consistent snapshot. Use it directly so a
+  // transition is not blocked behind the background dashboard refresh; the
+  // API still enforces the version check if another tab changed the record.
+  const current = state.workspace?.application || await findApplication(state.selectedId);
   if (stage.value === current.stage) {
     showToast("Choose a different stage.", true);
     return;
