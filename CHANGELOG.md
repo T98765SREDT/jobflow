@@ -4,6 +4,8 @@ This file records user-visible changes to JobFlow.
 
 ## Unreleased
 
+## [1.2.0] - 2026-09-09
+
 - Added first-run guidance with separate add, import, and workflow-help actions for an empty local workspace.
 - Added an explicit runtime badge for the Python API + SQLite app versus the synthetic browser demo.
 - Simplified the application form around Company, Role, Stage, Next action, and Job URL, with secondary fields under More details.

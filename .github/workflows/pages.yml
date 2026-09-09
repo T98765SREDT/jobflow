@@ -24,8 +24,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+        uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Run repository verification
@@ -39,6 +39,8 @@ jobs:
 
   deploy:
     needs: verify
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -46,7 +48,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
@@ -58,3 +60,17 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check deployed demo shell and JavaScript
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          test -n "$PAGE_URL"
+          curl --fail --silent --show-error --location --max-time 20 "$PAGE_URL" | grep -q "JobFlow"
+          curl --fail --silent --show-error --location --max-time 20 "${PAGE_URL%/}/app.js" | grep -q "renderInsights"
